@@ -1,0 +1,61 @@
+import { CircleAlert } from "lucide-react";
+
+import { PaymentForm } from "@/features/payments/components/payment-form";
+import { PaymentList } from "@/features/payments/components/payment-list";
+import { useAppStore } from "@/stores/app.store";
+
+export function PaymentsScreen() {
+  const business = useAppStore((state) => state.business);
+  const customers = useAppStore((state) => state.customers);
+  const payments = useAppStore((state) => state.payments);
+  const isSaving = useAppStore((state) => state.isSaving);
+  const voidPayment = useAppStore((state) => state.voidPayment);
+  const currency = business?.currency ?? "GTQ";
+  const readyToCharge = customers.length > 0;
+
+  const onVoid = (paymentId: string): void => {
+    if (
+      window.confirm(
+        "¿Anular este pago? Quedará registrado como anulado y no se podrá deshacer.",
+      )
+    ) {
+      void voidPayment(paymentId);
+    }
+  };
+
+  return (
+    <section className="page-enter grid gap-6">
+      <header>
+        <p className="eyebrow">Caja</p>
+        <h1 className="page-title">Pagos</h1>
+        <p className="page-description">
+          Registra los cobros del negocio, ligados a una cita o como venta
+          suelta.
+        </p>
+      </header>
+
+      {!readyToCharge && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-300/60 bg-amber-50 p-4 text-amber-950">
+          <CircleAlert className="mt-0.5 size-5 shrink-0" />
+          <div>
+            <p className="font-semibold">Registra un cliente antes de cobrar</p>
+            <p className="mt-1 text-sm text-amber-900/75">
+              Todo pago necesita un cliente asociado.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(300px,0.72fr)_1.28fr]">
+        {readyToCharge && <PaymentForm />}
+        <PaymentList
+          currency={currency}
+          customers={customers}
+          isSaving={isSaving}
+          onVoid={onVoid}
+          payments={payments}
+        />
+      </div>
+    </section>
+  );
+}

@@ -11,6 +11,7 @@ Aplicación de escritorio offline-first para gestionar negocios que trabajan med
 - Calendario mensual, semanal y diario.
 - Creación, edición y cancelación de citas.
 - Bloqueo de citas superpuestas por profesional.
+- Registro de pagos, ligados a una cita o como venta suelta, con anulación.
 - Persistencia local con migraciones SQLite.
 
 ## Requisitos

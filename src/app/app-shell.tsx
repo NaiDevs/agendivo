@@ -38,7 +38,6 @@ const navigation: NavigationItem[] = [
     id: APP_SECTION.PAYMENTS,
     label: "Caja",
     icon: CircleDollarSign,
-    upcoming: true,
   },
   {
     id: APP_SECTION.REPORTS,

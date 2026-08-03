@@ -5,10 +5,11 @@ import {
   CalendarPlus,
   ChevronDown,
   Clock3,
+  Plus,
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { useForm, useWatch, type UseFormRegisterReturn } from "react-hook-form";
 
 import { FieldError } from "@/components/field-error";
@@ -21,6 +22,8 @@ import {
   type Appointment,
 } from "@/domain/entities/appointment";
 import { appointmentStatusLabel } from "@/features/appointments/appointment-presenter";
+import { PaymentForm } from "@/features/payments/components/payment-form";
+import { paymentMethodLabel } from "@/features/payments/payment-presenter";
 import { formatMoney } from "@/lib/format-money";
 import {
   appointmentFormSchema,
@@ -47,12 +50,22 @@ export function AppointmentForm({
   const customers = useAppStore((state) => state.customers);
   const employees = useAppStore((state) => state.employees);
   const services = useAppStore((state) => state.services);
+  const payments = useAppStore((state) => state.payments);
+  const appointmentBalance = useAppStore((state) => state.appointmentBalance);
   const addAppointment = useAppStore((state) => state.addAppointment);
   const editAppointment = useAppStore((state) => state.editAppointment);
   const cancel = useAppStore((state) => state.cancelAppointment);
   const isSaving = useAppStore((state) => state.isSaving);
   const error = useAppStore((state) => state.error);
   const clearError = useAppStore((state) => state.clearError);
+  const [showPayment, setShowPayment] = useState(false);
+  const [lastAppointmentId, setLastAppointmentId] = useState(
+    appointment?.id ?? null,
+  );
+  if ((appointment?.id ?? null) !== lastAppointmentId) {
+    setLastAppointmentId(appointment?.id ?? null);
+    setShowPayment(false);
+  }
   const {
     register,
     handleSubmit,
@@ -80,6 +93,11 @@ export function AppointmentForm({
     !Number.isNaN(new Date(selectedStart).getTime())
       ? addMinutes(new Date(selectedStart), selectedDuration)
       : null;
+  const currency = business?.currency ?? "GTQ";
+  const appointmentPayments =
+    appointment === null
+      ? []
+      : payments.filter((payment) => payment.appointmentId === appointment.id);
   const serviceRegistration = register("serviceId", {
     onChange: (event: ChangeEvent<HTMLSelectElement>): void => {
       const service = services.find((item) => item.id === event.target.value);
@@ -264,6 +282,45 @@ export function AppointmentForm({
             </p>
           </div>
         </div>
+        {appointment !== null && (
+          <div className="grid gap-2 rounded-2xl border border-dashed p-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-muted-foreground text-xs">Saldo pendiente</p>
+                <p className="mt-0.5 font-semibold">
+                  {formatMoney(appointmentBalance(appointment.id), currency)}
+                </p>
+              </div>
+              <Button
+                className="h-9 gap-1.5"
+                onClick={() => setShowPayment(true)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Plus className="size-4" />
+                Registrar pago
+              </Button>
+            </div>
+            {appointmentPayments.length > 0 && (
+              <ul className="grid gap-1.5 border-t pt-2">
+                {appointmentPayments.map((payment) => (
+                  <li
+                    className="flex items-center justify-between text-sm"
+                    key={payment.id}
+                  >
+                    <span className="text-muted-foreground">
+                      {paymentMethodLabel[payment.method]}
+                    </span>
+                    <span className="font-medium">
+                      {formatMoney(payment.amount, currency)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         <div className="field-group">
           <div className="flex items-center justify-between">
             <Label htmlFor="appointment-notes">Notas</Label>
@@ -298,6 +355,22 @@ export function AppointmentForm({
             </Button>
           )}
       </form>
+      {showPayment && appointment !== null && (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
+          role="dialog"
+        >
+          <div className="w-full max-w-md">
+            <PaymentForm
+              lockedAppointmentId={appointment.id}
+              lockedCustomerId={appointment.customerId}
+              onClose={() => setShowPayment(false)}
+              onSaved={() => setShowPayment(false)}
+            />
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Business } from "@/domain/entities/business";
+import { PAYMENT_METHOD, type Payment } from "@/domain/entities/payment";
 import type {
   DatabaseClient,
   DatabaseExecutionResult,
@@ -9,6 +10,7 @@ import { SqliteBusinessRepository } from "@/infrastructure/repositories/sqlite-b
 import { SqliteAppointmentRepository } from "@/infrastructure/repositories/sqlite-appointment.repository";
 import { SqliteCustomerRepository } from "@/infrastructure/repositories/sqlite-customer.repository";
 import { SqliteEmployeeRepository } from "@/infrastructure/repositories/sqlite-employee.repository";
+import { SqlitePaymentRepository } from "@/infrastructure/repositories/sqlite-payment.repository";
 import { SqliteServiceRepository } from "@/infrastructure/repositories/sqlite-service.repository";
 
 class FakeDatabase implements DatabaseClient {
@@ -156,5 +158,85 @@ describe("SqliteServiceRepository", () => {
     expect(database.lastQuery).toContain("FROM services");
     expect(database.lastQuery).toContain("deleted_at IS NULL");
     expect(database.lastBindValues).toEqual([business.id]);
+  });
+});
+
+const payment: Payment = {
+  id: "77777777-7777-4777-8777-777777777777",
+  businessId: business.id,
+  appointmentId: "66666666-6666-4666-8666-666666666666",
+  customerId: "88888888-8888-4888-8888-888888888888",
+  amount: 15000,
+  method: PAYMENT_METHOD.CASH,
+  paidAt: "2026-08-04T10:30:00.000Z",
+  notes: null,
+  createdAt: "2026-08-04T10:30:00.000Z",
+  updatedAt: "2026-08-04T10:30:00.000Z",
+  deletedAt: null,
+  version: 1,
+  deviceId: business.deviceId,
+};
+
+describe("SqlitePaymentRepository", () => {
+  it("filtra pagos activos por negocio", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqlitePaymentRepository(database);
+
+    await repository.findActiveByBusiness(business.id);
+
+    expect(database.lastQuery).toContain("FROM payments");
+    expect(database.lastQuery).toContain("deleted_at IS NULL");
+    expect(database.lastBindValues).toEqual([business.id]);
+  });
+
+  it("busca pagos activos de una cita", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqlitePaymentRepository(database);
+
+    await repository.findByAppointment(payment.appointmentId as string);
+
+    expect(database.lastQuery).toContain("appointment_id = ?");
+    expect(database.lastQuery).toContain("deleted_at IS NULL");
+    expect(database.lastBindValues).toEqual([payment.appointmentId]);
+  });
+
+  it("inserta todos los campos de sincronización", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqlitePaymentRepository(database);
+
+    await repository.create(payment);
+
+    expect(database.lastQuery).toContain("INSERT INTO payments");
+    expect(database.lastBindValues).toEqual([
+      payment.id,
+      payment.businessId,
+      payment.appointmentId,
+      payment.customerId,
+      payment.amount,
+      payment.method,
+      payment.paidAt,
+      payment.notes,
+      payment.createdAt,
+      payment.updatedAt,
+      payment.deletedAt,
+      payment.version,
+      payment.deviceId,
+    ]);
+  });
+
+  it("anula un pago marcando el borrado lógico", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqlitePaymentRepository(database);
+    const voided: Payment = {
+      ...payment,
+      deletedAt: "2026-08-05T00:00:00.000Z",
+    };
+
+    await repository.void(voided);
+
+    const bindValues = database.lastBindValues ?? [];
+    expect(database.lastQuery).toContain("UPDATE payments SET");
+    expect(bindValues[9]).toBe(voided.deletedAt);
+    expect(bindValues[bindValues.length - 1]).toBe(voided.id);
   });
 });

@@ -38,15 +38,15 @@ posteriores.
 Extiende `SyncableEntity` (`id`, `createdAt`, `updatedAt`, `deletedAt`,
 `version`, `deviceId`).
 
-| Campo           | Tipo                | Notas                                  |
-|-----------------|---------------------|----------------------------------------|
-| `businessId`    | `string`            | UUID                                   |
-| `appointmentId` | `string \| null`    | UUID, opcional (walk-in)               |
-| `customerId`    | `string`            | UUID, obligatorio                      |
-| `amount`        | `number`            | centavos, entero > 0                   |
-| `method`        | `PaymentMethod`     | enum                                   |
-| `paidAt`        | `string`            | ISO UTC, default ahora, editable       |
-| `notes`         | `string \| null`    | max 500                                |
+| Campo           | Tipo             | Notas                            |
+| --------------- | ---------------- | -------------------------------- |
+| `businessId`    | `string`         | UUID                             |
+| `appointmentId` | `string \| null` | UUID, opcional (walk-in)         |
+| `customerId`    | `string`         | UUID, obligatorio                |
+| `amount`        | `number`         | centavos, entero > 0             |
+| `method`        | `PaymentMethod`  | enum                             |
+| `paidAt`        | `string`         | ISO UTC, default ahora, editable |
+| `notes`         | `string \| null` | max 500                          |
 
 ### `PAYMENT_METHOD`
 
@@ -106,6 +106,7 @@ Patrón de `AppointmentConflictError`.
 ## Estado (store)
 
 `src/stores/app.store.ts`:
+
 - Estado nuevo: `payments: Payment[]`, cargado en `initialize()` con
   `SqlitePaymentRepository.findActiveByBusiness` (dentro del `Promise.all`).
 - `addPayment(values)`: mismo patrón que `addAppointment` (isSaving, error,
@@ -117,6 +118,7 @@ Patrón de `AppointmentConflictError`.
 ## Schemas
 
 `src/schemas/payment.schema.ts`:
+
 - `customerId`: uuid.
 - `appointmentId`: `union("" | uuid)`, opcional.
 - `amount`: number > 0, max 1.000.000.
@@ -129,6 +131,7 @@ Con `payment.schema.spec.ts`.
 ## UI
 
 Nueva carpeta `src/features/payments/`:
+
 - `payments-screen.tsx`: lista de pagos (fecha, cliente, cita si aplica, método,
   monto con `formatMoney`, botón **Anular** con confirmación) + botón
   **Nuevo pago**.
@@ -139,6 +142,7 @@ Nueva carpeta `src/features/payments/`:
 - `components/payment-list.tsx`: el listado.
 
 Integración en `src/features/appointments/components/appointment-form.tsx`:
+
 - Bloque "Pagos" visible solo al **editar** una cita existente: muestra saldo
   pendiente y pagos ya registrados, con botón **Registrar pago** que abre el
   `payment-form` precargado con esa cita.

@@ -1,4 +1,4 @@
-import { BarChart3, CircleDollarSign, Sparkles } from "lucide-react";
+import { BarChart3, Sparkles } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 
 import { AppShell } from "@/app/app-shell";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CustomersScreen } from "@/features/customers/customers-screen";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
 import { EmployeesScreen } from "@/features/employees/employees-screen";
+import { PaymentsScreen } from "@/features/payments/payments-screen";
 import { ServicesScreen } from "@/features/services/services-screen";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { BusinessSetupForm } from "@/features/settings/components/business-setup-form";
@@ -108,13 +109,7 @@ function renderSection(
         </Suspense>
       );
     case APP_SECTION.PAYMENTS:
-      return (
-        <UpcomingScreen
-          icon={CircleDollarSign}
-          title="Caja y movimientos"
-          description="Pagos y gastos se incorporarán después de completar la agenda."
-        />
-      );
+      return <PaymentsScreen />;
     case APP_SECTION.REPORTS:
       return (
         <UpcomingScreen
