@@ -4,7 +4,7 @@ import { PaymentForm } from "@/features/payments/components/payment-form";
 import { PaymentList } from "@/features/payments/components/payment-list";
 import { useAppStore } from "@/stores/app.store";
 
-export function PaymentsScreen() {
+export function PaymentsPanel() {
   const business = useAppStore((state) => state.business);
   const customers = useAppStore((state) => state.customers);
   const payments = useAppStore((state) => state.payments);
@@ -24,16 +24,7 @@ export function PaymentsScreen() {
   };
 
   return (
-    <section className="page-enter grid gap-6">
-      <header>
-        <p className="eyebrow">Caja</p>
-        <h1 className="page-title">Pagos</h1>
-        <p className="page-description">
-          Registra los cobros del negocio, ligados a una cita o como venta
-          suelta.
-        </p>
-      </header>
-
+    <div className="grid gap-6">
       {!readyToCharge && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-300/60 bg-amber-50 p-4 text-amber-950">
           <CircleAlert className="mt-0.5 size-5 shrink-0" />
@@ -45,7 +36,6 @@ export function PaymentsScreen() {
           </div>
         </div>
       )}
-
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(300px,0.72fr)_1.28fr]">
         {readyToCharge && <PaymentForm />}
         <PaymentList
@@ -56,6 +46,6 @@ export function PaymentsScreen() {
           payments={payments}
         />
       </div>
-    </section>
+    </div>
   );
 }

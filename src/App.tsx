@@ -7,8 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CustomersScreen } from "@/features/customers/customers-screen";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
+import { CashScreen } from "@/features/cash/cash-screen";
 import { EmployeesScreen } from "@/features/employees/employees-screen";
-import { PaymentsScreen } from "@/features/payments/payments-screen";
 import { ServicesScreen } from "@/features/services/services-screen";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { BusinessSetupForm } from "@/features/settings/components/business-setup-form";
@@ -109,7 +109,7 @@ function renderSection(
         </Suspense>
       );
     case APP_SECTION.PAYMENTS:
-      return <PaymentsScreen />;
+      return <CashScreen />;
     case APP_SECTION.REPORTS:
       return (
         <UpcomingScreen

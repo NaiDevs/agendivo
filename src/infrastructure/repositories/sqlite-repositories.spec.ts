@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Business } from "@/domain/entities/business";
+import { EXPENSE_CATEGORY, type Expense } from "@/domain/entities/expense";
 import { PAYMENT_METHOD, type Payment } from "@/domain/entities/payment";
 import type {
   DatabaseClient,
@@ -10,6 +11,7 @@ import { SqliteBusinessRepository } from "@/infrastructure/repositories/sqlite-b
 import { SqliteAppointmentRepository } from "@/infrastructure/repositories/sqlite-appointment.repository";
 import { SqliteCustomerRepository } from "@/infrastructure/repositories/sqlite-customer.repository";
 import { SqliteEmployeeRepository } from "@/infrastructure/repositories/sqlite-employee.repository";
+import { SqliteExpenseRepository } from "@/infrastructure/repositories/sqlite-expense.repository";
 import { SqlitePaymentRepository } from "@/infrastructure/repositories/sqlite-payment.repository";
 import { SqliteServiceRepository } from "@/infrastructure/repositories/sqlite-service.repository";
 
@@ -238,5 +240,81 @@ describe("SqlitePaymentRepository", () => {
     expect(database.lastQuery).toContain("UPDATE payments SET");
     expect(bindValues[9]).toBe(voided.deletedAt);
     expect(bindValues[bindValues.length - 1]).toBe(voided.id);
+  });
+});
+
+const expense: Expense = {
+  id: "99999999-9999-4999-8999-999999999999",
+  businessId: business.id,
+  category: EXPENSE_CATEGORY.SUPPLIES,
+  description: "Shampoo",
+  amount: 32050,
+  spentAt: "2026-08-04T10:30:00.000Z",
+  createdAt: "2026-08-04T10:30:00.000Z",
+  updatedAt: "2026-08-04T10:30:00.000Z",
+  deletedAt: null,
+  version: 1,
+  deviceId: business.deviceId,
+};
+
+describe("SqliteExpenseRepository", () => {
+  it("filtra gastos activos por negocio", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteExpenseRepository(database);
+
+    await repository.findActiveByBusiness(business.id);
+
+    expect(database.lastQuery).toContain("FROM expenses");
+    expect(database.lastQuery).toContain("deleted_at IS NULL");
+    expect(database.lastBindValues).toEqual([business.id]);
+  });
+
+  it("inserta todos los campos de sincronización", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteExpenseRepository(database);
+
+    await repository.create(expense);
+
+    expect(database.lastQuery).toContain("INSERT INTO expenses");
+    expect(database.lastBindValues).toEqual([
+      expense.id,
+      expense.businessId,
+      expense.category,
+      expense.description,
+      expense.amount,
+      expense.spentAt,
+      expense.createdAt,
+      expense.updatedAt,
+      expense.deletedAt,
+      expense.version,
+      expense.deviceId,
+    ]);
+  });
+
+  it("actualiza un gasto conservando el id al final", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteExpenseRepository(database);
+
+    await repository.update({ ...expense, amount: 999 });
+
+    const bindValues = database.lastBindValues ?? [];
+    expect(database.lastQuery).toContain("UPDATE expenses SET");
+    expect(bindValues[bindValues.length - 1]).toBe(expense.id);
+  });
+
+  it("elimina un gasto marcando el borrado lógico", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteExpenseRepository(database);
+    const removed: Expense = {
+      ...expense,
+      deletedAt: "2026-08-05T00:00:00.000Z",
+    };
+
+    await repository.delete(removed);
+
+    const bindValues = database.lastBindValues ?? [];
+    expect(database.lastQuery).toContain("UPDATE expenses SET");
+    expect(bindValues[7]).toBe(removed.deletedAt);
+    expect(bindValues[bindValues.length - 1]).toBe(removed.id);
   });
 });

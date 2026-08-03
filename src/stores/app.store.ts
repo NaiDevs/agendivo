@@ -4,6 +4,7 @@ import type { Business } from "@/domain/entities/business";
 import type { Appointment } from "@/domain/entities/appointment";
 import type { Customer } from "@/domain/entities/customer";
 import type { Employee } from "@/domain/entities/employee";
+import type { Expense } from "@/domain/entities/expense";
 import type { Payment } from "@/domain/entities/payment";
 import type { Service } from "@/domain/entities/service";
 import { createBusiness } from "@/domain/services/business.service";
@@ -14,6 +15,11 @@ import {
 } from "@/domain/services/appointment.service";
 import { createCustomer } from "@/domain/services/customer.service";
 import { createEmployee } from "@/domain/services/employee.service";
+import {
+  createExpense,
+  deleteExpense as deleteExpenseRecord,
+  updateExpense,
+} from "@/domain/services/expense.service";
 import {
   createPayment,
   pendingBalance,
@@ -26,6 +32,7 @@ import { SqliteBusinessRepository } from "@/infrastructure/repositories/sqlite-b
 import { SqliteAppointmentRepository } from "@/infrastructure/repositories/sqlite-appointment.repository";
 import { SqliteCustomerRepository } from "@/infrastructure/repositories/sqlite-customer.repository";
 import { SqliteEmployeeRepository } from "@/infrastructure/repositories/sqlite-employee.repository";
+import { SqliteExpenseRepository } from "@/infrastructure/repositories/sqlite-expense.repository";
 import { SqlitePaymentRepository } from "@/infrastructure/repositories/sqlite-payment.repository";
 import { SqliteServiceRepository } from "@/infrastructure/repositories/sqlite-service.repository";
 import { getErrorMessage } from "@/lib/error-message";
@@ -33,11 +40,16 @@ import type { BusinessFormValues } from "@/schemas/business.schema";
 import type { AppointmentFormValues } from "@/schemas/appointment.schema";
 import type { CustomerFormValues } from "@/schemas/customer.schema";
 import type { EmployeeFormValues } from "@/schemas/employee.schema";
+import type { ExpenseFormValues } from "@/schemas/expense.schema";
 import type { PaymentFormValues } from "@/schemas/payment.schema";
 import type { ServiceFormValues } from "@/schemas/service.schema";
 
 function byPaidAtDesc(left: Payment, right: Payment): number {
   return right.paidAt.localeCompare(left.paidAt);
+}
+
+function bySpentAtDesc(left: Expense, right: Expense): number {
+  return right.spentAt.localeCompare(left.spentAt);
 }
 
 export const APP_PHASE = {
@@ -58,6 +70,7 @@ interface AppStore {
   employees: Employee[];
   services: Service[];
   payments: Payment[];
+  expenses: Expense[];
   isSaving: boolean;
   error: string | null;
   initialize: () => Promise<void>;
@@ -74,6 +87,12 @@ interface AppStore {
   addPayment: (values: PaymentFormValues) => Promise<boolean>;
   voidPayment: (paymentId: string) => Promise<boolean>;
   appointmentBalance: (appointmentId: string) => number;
+  addExpense: (values: ExpenseFormValues) => Promise<boolean>;
+  editExpense: (
+    expenseId: string,
+    values: ExpenseFormValues,
+  ) => Promise<boolean>;
+  deleteExpense: (expenseId: string) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -85,6 +104,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   employees: [],
   services: [],
   payments: [],
+  expenses: [],
   isSaving: false,
   error: null,
 
@@ -110,6 +130,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           employees: [],
           services: [],
           payments: [],
+          expenses: [],
         });
         return;
       }
@@ -119,13 +140,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const employeeRepository = new SqliteEmployeeRepository(database);
       const serviceRepository = new SqliteServiceRepository(database);
       const paymentRepository = new SqlitePaymentRepository(database);
-      const [appointments, customers, employees, services, payments] =
+      const expenseRepository = new SqliteExpenseRepository(database);
+      const [appointments, customers, employees, services, payments, expenses] =
         await Promise.all([
           appointmentRepository.findActiveByBusiness(business.id),
           customerRepository.findActiveByBusiness(business.id),
           employeeRepository.findActiveByBusiness(business.id),
           serviceRepository.findActiveByBusiness(business.id),
           paymentRepository.findActiveByBusiness(business.id),
+          expenseRepository.findActiveByBusiness(business.id),
         ]);
       set({
         phase: APP_PHASE.READY,
@@ -135,6 +158,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         employees,
         services,
         payments,
+        expenses,
       });
     } catch (error: unknown) {
       set({ phase: APP_PHASE.ERROR, error: getErrorMessage(error) });
@@ -157,6 +181,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         employees: [],
         services: [],
         payments: [],
+        expenses: [],
         isSaving: false,
       });
       return true;
@@ -407,6 +432,86 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await voidPaymentRecord(current, repository);
       set({
         payments: get().payments.filter((item) => item.id !== paymentId),
+        isSaving: false,
+      });
+      return true;
+    } catch (error: unknown) {
+      set({ isSaving: false, error: getErrorMessage(error) });
+      return false;
+    }
+  },
+
+  addExpense: async (values: ExpenseFormValues): Promise<boolean> => {
+    const business = get().business;
+    if (business === null) {
+      set({ error: "Configura el negocio antes de registrar un gasto." });
+      return false;
+    }
+
+    set({ isSaving: true, error: null });
+    try {
+      const database = await getDatabaseClient();
+      const deviceId = await getDeviceId(database);
+      const repository = new SqliteExpenseRepository(database);
+      const expense = await createExpense(
+        values,
+        business.id,
+        deviceId,
+        repository,
+      );
+      set({
+        expenses: [expense, ...get().expenses].sort(bySpentAtDesc),
+        isSaving: false,
+      });
+      return true;
+    } catch (error: unknown) {
+      set({ isSaving: false, error: getErrorMessage(error) });
+      return false;
+    }
+  },
+
+  editExpense: async (
+    expenseId: string,
+    values: ExpenseFormValues,
+  ): Promise<boolean> => {
+    const current = get().expenses.find((item) => item.id === expenseId);
+    if (current === undefined) {
+      set({ error: "El gasto seleccionado ya no está disponible." });
+      return false;
+    }
+
+    set({ isSaving: true, error: null });
+    try {
+      const database = await getDatabaseClient();
+      const repository = new SqliteExpenseRepository(database);
+      const expense = await updateExpense(current, values, repository);
+      set({
+        expenses: get()
+          .expenses.map((item) => (item.id === expense.id ? expense : item))
+          .sort(bySpentAtDesc),
+        isSaving: false,
+      });
+      return true;
+    } catch (error: unknown) {
+      set({ isSaving: false, error: getErrorMessage(error) });
+      return false;
+    }
+  },
+
+  deleteExpense: async (expenseId: string): Promise<boolean> => {
+    const current = get().expenses.find((item) => item.id === expenseId);
+    if (current === undefined) {
+      set({ error: "El gasto seleccionado ya no está disponible." });
+      return false;
+    }
+
+    set({ isSaving: true, error: null });
+    try {
+      const database = await getDatabaseClient();
+      const repository = new SqliteExpenseRepository(database);
+      await deleteExpenseRecord(current, repository);
+      set({
+        expenses: get().expenses.filter((item) => item.id !== expenseId),
         isSaving: false,
       });
       return true;
