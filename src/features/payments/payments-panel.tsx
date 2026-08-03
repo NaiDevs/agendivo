@@ -1,17 +1,35 @@
 import { CircleAlert } from "lucide-react";
+import { useEffect, useState } from "react";
 
+import type { Payment } from "@/domain/entities/payment";
 import { PaymentForm } from "@/features/payments/components/payment-form";
 import { PaymentList } from "@/features/payments/components/payment-list";
+import { PaymentReceipt } from "@/features/payments/components/payment-receipt";
 import { useAppStore } from "@/stores/app.store";
 
 export function PaymentsPanel() {
   const business = useAppStore((state) => state.business);
   const customers = useAppStore((state) => state.customers);
+  const appointments = useAppStore((state) => state.appointments);
   const payments = useAppStore((state) => state.payments);
   const isSaving = useAppStore((state) => state.isSaving);
   const voidPayment = useAppStore((state) => state.voidPayment);
   const currency = business?.currency ?? "GTQ";
   const readyToCharge = customers.length > 0;
+  const [receiptPayment, setReceiptPayment] = useState<Payment | null>(null);
+
+  useEffect(() => {
+    if (receiptPayment === null) {
+      return;
+    }
+    const clear = (): void => setReceiptPayment(null);
+    window.addEventListener("afterprint", clear, { once: true });
+    const frame = requestAnimationFrame(() => window.print());
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("afterprint", clear);
+    };
+  }, [receiptPayment]);
 
   const onVoid = (paymentId: string): void => {
     if (
@@ -42,10 +60,26 @@ export function PaymentsPanel() {
           currency={currency}
           customers={customers}
           isSaving={isSaving}
+          onPrint={setReceiptPayment}
           onVoid={onVoid}
           payments={payments}
         />
       </div>
+      {receiptPayment !== null && business !== null && (
+        <PaymentReceipt
+          appointment={
+            appointments.find(
+              (item) => item.id === receiptPayment.appointmentId,
+            ) ?? null
+          }
+          business={business}
+          customer={
+            customers.find((item) => item.id === receiptPayment.customerId) ??
+            null
+          }
+          payment={receiptPayment}
+        />
+      )}
     </div>
   );
 }

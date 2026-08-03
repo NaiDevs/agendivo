@@ -15,6 +15,7 @@ Aplicación de escritorio offline-first para gestionar negocios que trabajan med
 - Registro de gastos por categoría, editables y con borrado lógico.
 - Reportes financieros diario y mensual con desgloses y balance.
 - Exportación de reportes a Excel (.xlsx).
+- Impresión de recibos de pago.
 - Persistencia local con migraciones SQLite.
 
 ## Requisitos

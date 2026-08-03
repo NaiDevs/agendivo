@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { CircleDollarSign, Trash2 } from "lucide-react";
+import { CircleDollarSign, Printer, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { Customer } from "@/domain/entities/customer";
@@ -13,6 +13,7 @@ interface PaymentListProps {
   currency: string;
   isSaving: boolean;
   onVoid: (paymentId: string) => void;
+  onPrint: (payment: Payment) => void;
 }
 
 export function PaymentList({
@@ -21,6 +22,7 @@ export function PaymentList({
   currency,
   isSaving,
   onVoid,
+  onPrint,
 }: PaymentListProps) {
   return (
     <div className="surface-card min-h-80 p-5 sm:p-6">
@@ -65,6 +67,15 @@ export function PaymentList({
                   <span className="text-primary text-base font-bold">
                     {formatMoney(payment.amount, currency)}
                   </span>
+                  <Button
+                    aria-label="Imprimir recibo"
+                    onClick={() => onPrint(payment)}
+                    size="icon"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Printer className="size-4" />
+                  </Button>
                   <Button
                     aria-label="Anular pago"
                     disabled={isSaving}
