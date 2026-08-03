@@ -3,7 +3,10 @@ import { useState } from "react";
 
 import { dailyReport } from "@/domain/services/report.service";
 import { BreakdownList } from "@/features/reports/components/breakdown-list";
+import { ExportButton } from "@/features/reports/components/export-button";
 import { SummaryCards } from "@/features/reports/components/summary-cards";
+import { exportDailyReport } from "@/features/reports/export-report";
+import { reportExportLabels } from "@/features/reports/report-labels";
 import { expenseCategoryLabel } from "@/features/expenses/expense-presenter";
 import { paymentMethodLabel } from "@/features/payments/payment-presenter";
 import { Input } from "@/components/ui/input";
@@ -28,13 +31,18 @@ export function DailyReportPanel() {
 
   return (
     <div className="grid gap-6">
-      <div className="field-group max-w-56">
-        <Label htmlFor="report-date">Día</Label>
-        <Input
-          id="report-date"
-          onChange={(event) => setDate(event.target.value)}
-          type="date"
-          value={date}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div className="field-group max-w-56">
+          <Label htmlFor="report-date">Día</Label>
+          <Input
+            id="report-date"
+            onChange={(event) => setDate(event.target.value)}
+            type="date"
+            value={date}
+          />
+        </div>
+        <ExportButton
+          onExport={() => exportDailyReport(date, report, reportExportLabels)}
         />
       </div>
       <SummaryCards currency={currency} summary={report} />
