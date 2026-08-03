@@ -1,0 +1,2 @@
+DROP TRIGGER IF EXISTS validate_appointment_relations_update;
+DROP TRIGGER IF EXISTS validate_appointment_relations_insert;

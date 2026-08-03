@@ -1,0 +1,160 @@
+import { describe, expect, it } from "vitest";
+
+import type { Business } from "@/domain/entities/business";
+import type {
+  DatabaseClient,
+  DatabaseExecutionResult,
+} from "@/infrastructure/database/database-client";
+import { SqliteBusinessRepository } from "@/infrastructure/repositories/sqlite-business.repository";
+import { SqliteAppointmentRepository } from "@/infrastructure/repositories/sqlite-appointment.repository";
+import { SqliteCustomerRepository } from "@/infrastructure/repositories/sqlite-customer.repository";
+import { SqliteEmployeeRepository } from "@/infrastructure/repositories/sqlite-employee.repository";
+import { SqliteServiceRepository } from "@/infrastructure/repositories/sqlite-service.repository";
+
+class FakeDatabase implements DatabaseClient {
+  selectedRows: unknown = [];
+  lastQuery: string | null = null;
+  lastBindValues: unknown[] | undefined;
+
+  async select<T>(query: string, bindValues?: unknown[]): Promise<T> {
+    this.lastQuery = query;
+    this.lastBindValues = bindValues;
+    return this.selectedRows as T;
+  }
+
+  async execute(
+    query: string,
+    bindValues?: unknown[],
+  ): Promise<DatabaseExecutionResult> {
+    this.lastQuery = query;
+    this.lastBindValues = bindValues;
+    return { rowsAffected: 1 };
+  }
+}
+
+const business: Business = {
+  id: "11111111-1111-4111-8111-111111111111",
+  name: "Barbería Central",
+  phone: null,
+  email: null,
+  address: null,
+  timezone: "America/Guatemala",
+  currency: "GTQ",
+  createdAt: "2026-08-03T04:00:00.000Z",
+  updatedAt: "2026-08-03T04:00:00.000Z",
+  deletedAt: null,
+  version: 1,
+  deviceId: "22222222-2222-4222-8222-222222222222",
+};
+
+describe("SqliteBusinessRepository", () => {
+  it("mapea una fila SQLite a la entidad de dominio", async () => {
+    const database = new FakeDatabase();
+    database.selectedRows = [
+      {
+        id: business.id,
+        name: business.name,
+        phone: null,
+        email: null,
+        address: null,
+        timezone: business.timezone,
+        currency: business.currency,
+        created_at: business.createdAt,
+        updated_at: business.updatedAt,
+        deleted_at: null,
+        version: 1,
+        device_id: business.deviceId,
+      },
+    ];
+    const repository = new SqliteBusinessRepository(database);
+
+    await expect(repository.findActive()).resolves.toEqual(business);
+  });
+
+  it("inserta todos los campos de sincronización", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteBusinessRepository(database);
+
+    await repository.create(business);
+
+    expect(database.lastQuery).toContain("INSERT INTO businesses");
+    expect(database.lastBindValues).toEqual([
+      business.id,
+      business.name,
+      null,
+      null,
+      null,
+      business.timezone,
+      business.currency,
+      business.createdAt,
+      business.updatedAt,
+      null,
+      1,
+      business.deviceId,
+    ]);
+  });
+});
+
+describe("SqliteAppointmentRepository", () => {
+  it("busca cruces excluyendo la cita editada", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteAppointmentRepository(database);
+    const appointmentId = "66666666-6666-4666-8666-666666666666";
+
+    await repository.hasOverlap(
+      "22222222-2222-4222-8222-222222222222",
+      "2026-08-04T16:00:00.000Z",
+      "2026-08-04T16:45:00.000Z",
+      appointmentId,
+    );
+
+    expect(database.lastQuery).toContain(
+      "status NOT IN ('cancelled', 'no_show')",
+    );
+    expect(database.lastBindValues).toEqual([
+      "22222222-2222-4222-8222-222222222222",
+      "2026-08-04T16:45:00.000Z",
+      "2026-08-04T16:00:00.000Z",
+      appointmentId,
+      appointmentId,
+    ]);
+  });
+});
+
+describe("SqliteCustomerRepository", () => {
+  it("filtra por negocio y excluye borrados lógicos", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteCustomerRepository(database);
+
+    await repository.findActiveByBusiness(business.id);
+
+    expect(database.lastQuery).toContain("deleted_at IS NULL");
+    expect(database.lastBindValues).toEqual([business.id]);
+  });
+});
+
+describe("SqliteEmployeeRepository", () => {
+  it("filtra empleados activos por negocio", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteEmployeeRepository(database);
+
+    await repository.findActiveByBusiness(business.id);
+
+    expect(database.lastQuery).toContain("FROM employees");
+    expect(database.lastQuery).toContain("deleted_at IS NULL");
+    expect(database.lastBindValues).toEqual([business.id]);
+  });
+});
+
+describe("SqliteServiceRepository", () => {
+  it("filtra servicios activos por negocio", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqliteServiceRepository(database);
+
+    await repository.findActiveByBusiness(business.id);
+
+    expect(database.lastQuery).toContain("FROM services");
+    expect(database.lastQuery).toContain("deleted_at IS NULL");
+    expect(database.lastBindValues).toEqual([business.id]);
+  });
+});
