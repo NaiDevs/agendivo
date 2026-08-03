@@ -1,4 +1,4 @@
-import { BarChart3, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 
 import { AppShell } from "@/app/app-shell";
@@ -9,10 +9,10 @@ import { CustomersScreen } from "@/features/customers/customers-screen";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
 import { CashScreen } from "@/features/cash/cash-screen";
 import { EmployeesScreen } from "@/features/employees/employees-screen";
+import { ReportsScreen } from "@/features/reports/reports-screen";
 import { ServicesScreen } from "@/features/services/services-screen";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { BusinessSetupForm } from "@/features/settings/components/business-setup-form";
-import { UpcomingScreen } from "@/features/shared/upcoming-screen";
 import { APP_PHASE, useAppStore } from "@/stores/app.store";
 
 const AppointmentsScreen = lazy(async () => {
@@ -111,13 +111,7 @@ function renderSection(
     case APP_SECTION.PAYMENTS:
       return <CashScreen />;
     case APP_SECTION.REPORTS:
-      return (
-        <UpcomingScreen
-          icon={BarChart3}
-          title="Reportes del negocio"
-          description="Los resúmenes diarios y mensuales usarán los movimientos registrados en caja."
-        />
-      );
+      return <ReportsScreen />;
     case APP_SECTION.DASHBOARD:
       return <DashboardScreen onNavigate={onNavigate} />;
   }

@@ -43,7 +43,6 @@ const navigation: NavigationItem[] = [
     id: APP_SECTION.REPORTS,
     label: "Reportes",
     icon: BarChart3,
-    upcoming: true,
   },
 ];
 

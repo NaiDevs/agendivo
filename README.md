@@ -13,6 +13,7 @@ Aplicación de escritorio offline-first para gestionar negocios que trabajan med
 - Bloqueo de citas superpuestas por profesional.
 - Registro de pagos, ligados a una cita o como venta suelta, con anulación.
 - Registro de gastos por categoría, editables y con borrado lógico.
+- Reportes financieros diario y mensual con desgloses y balance.
 - Persistencia local con migraciones SQLite.
 
 ## Requisitos
