@@ -30,13 +30,28 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "msi"],
+    "publisher": "Naidelyn Maldonado",
+    "category": "Business",
+    "shortDescription": "Gestión offline de citas, clientes y finanzas.",
+    "longDescription": "Nai Citas es una aplicación de escritorio offline-first para administrar clientes, profesionales, servicios, citas, pagos, gastos, reportes y respaldos locales.",
+    "copyright": "Copyright © 2026 Naidelyn Maldonado",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "allowDowngrades": false,
+      "wix": {
+        "language": "es-ES"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Spanish"]
+      }
+    }
   }
 }

@@ -43,6 +43,7 @@ import type { EmployeeFormValues } from "@/schemas/employee.schema";
 import type { ExpenseFormValues } from "@/schemas/expense.schema";
 import type { PaymentFormValues } from "@/schemas/payment.schema";
 import type { ServiceFormValues } from "@/schemas/service.schema";
+import { loadingService, toastService } from "@/stores/feedback.store";
 
 function byPaidAtDesc(left: Payment, right: Payment): number {
   return right.paidAt.localeCompare(left.paidAt);
@@ -168,6 +169,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   saveBusiness: async (values: BusinessFormValues): Promise<boolean> => {
     set({ isSaving: true, error: null });
 
+    const operationId = loadingService.start("Guardando la configuración…");
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
@@ -184,21 +186,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
         expenses: [],
         isSaving: false,
       });
+      toastService.success("Negocio configurado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos guardar el negocio", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
   addAppointment: async (values: AppointmentFormValues): Promise<boolean> => {
     const business = get().business;
     if (business === null) {
-      set({ error: "Configura el negocio antes de registrar una cita." });
+      const message = "Configura el negocio antes de registrar una cita.";
+      set({ error: message });
+      toastService.error("No pudimos registrar la cita", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Guardando la cita…");
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
@@ -215,10 +225,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ),
         isSaving: false,
       });
+      toastService.success("Cita creada correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos guardar la cita", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
@@ -230,11 +245,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
       (item) => item.id === appointmentId,
     );
     if (current === undefined) {
-      set({ error: "La cita seleccionada ya no está disponible." });
+      const message = "La cita seleccionada ya no está disponible.";
+      set({ error: message });
+      toastService.error("No pudimos actualizar la cita", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Actualizando la cita…");
     try {
       const database = await getDatabaseClient();
       const repository = new SqliteAppointmentRepository(database);
@@ -247,10 +265,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
           .sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
         isSaving: false,
       });
+      toastService.success("Cita actualizada correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos actualizar la cita", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
@@ -259,11 +282,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
       (item) => item.id === appointmentId,
     );
     if (current === undefined) {
-      set({ error: "La cita seleccionada ya no está disponible." });
+      const message = "La cita seleccionada ya no está disponible.";
+      set({ error: message });
+      toastService.error("No pudimos cancelar la cita", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Cancelando la cita…");
     try {
       const database = await getDatabaseClient();
       const repository = new SqliteAppointmentRepository(database);
@@ -274,22 +300,30 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ),
         isSaving: false,
       });
+      toastService.success("Cita cancelada correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos cancelar la cita", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
   addCustomer: async (values: CustomerFormValues): Promise<boolean> => {
     const business = get().business;
     if (business === null) {
-      set({ error: "Configura el negocio antes de registrar clientes." });
+      const message = "Configura el negocio antes de registrar clientes.";
+      set({ error: message });
+      toastService.error("No pudimos registrar el cliente", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
 
+    const operationId = loadingService.start("Guardando el cliente…");
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
@@ -304,22 +338,30 @@ export const useAppStore = create<AppStore>((set, get) => ({
         left.name.localeCompare(right.name),
       );
       set({ customers, isSaving: false });
+      toastService.success("Cliente registrado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos guardar el cliente", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
   addEmployee: async (values: EmployeeFormValues): Promise<boolean> => {
     const business = get().business;
     if (business === null) {
-      set({ error: "Configura el negocio antes de registrar al equipo." });
+      const message = "Configura el negocio antes de registrar al equipo.";
+      set({ error: message });
+      toastService.error("No pudimos registrar al profesional", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
 
+    const operationId = loadingService.start("Guardando al profesional…");
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
@@ -334,22 +376,30 @@ export const useAppStore = create<AppStore>((set, get) => ({
         left.name.localeCompare(right.name),
       );
       set({ employees, isSaving: false });
+      toastService.success("Profesional registrado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos guardar al profesional", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
   addService: async (values: ServiceFormValues): Promise<boolean> => {
     const business = get().business;
     if (business === null) {
-      set({ error: "Configura el negocio antes de registrar servicios." });
+      const message = "Configura el negocio antes de registrar servicios.";
+      set({ error: message });
+      toastService.error("No pudimos registrar el servicio", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
 
+    const operationId = loadingService.start("Guardando el servicio…");
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
@@ -364,10 +414,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
         left.name.localeCompare(right.name),
       );
       set({ services, isSaving: false });
+      toastService.success("Servicio registrado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos guardar el servicio", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
@@ -387,11 +442,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   addPayment: async (values: PaymentFormValues): Promise<boolean> => {
     const business = get().business;
     if (business === null) {
-      set({ error: "Configura el negocio antes de registrar un pago." });
+      const message = "Configura el negocio antes de registrar un pago.";
+      set({ error: message });
+      toastService.error("No pudimos registrar el pago", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Registrando el pago…");
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
@@ -411,21 +469,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
         payments: [payment, ...get().payments].sort(byPaidAtDesc),
         isSaving: false,
       });
+      toastService.success("Pago registrado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos registrar el pago", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
   voidPayment: async (paymentId: string): Promise<boolean> => {
     const current = get().payments.find((item) => item.id === paymentId);
     if (current === undefined) {
-      set({ error: "El pago seleccionado ya no está disponible." });
+      const message = "El pago seleccionado ya no está disponible.";
+      set({ error: message });
+      toastService.error("No pudimos anular el pago", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Anulando el pago…");
     try {
       const database = await getDatabaseClient();
       const repository = new SqlitePaymentRepository(database);
@@ -434,21 +500,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
         payments: get().payments.filter((item) => item.id !== paymentId),
         isSaving: false,
       });
+      toastService.success("Pago anulado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos anular el pago", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
   addExpense: async (values: ExpenseFormValues): Promise<boolean> => {
     const business = get().business;
     if (business === null) {
-      set({ error: "Configura el negocio antes de registrar un gasto." });
+      const message = "Configura el negocio antes de registrar un gasto.";
+      set({ error: message });
+      toastService.error("No pudimos registrar el gasto", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Guardando el gasto…");
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
@@ -463,10 +537,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
         expenses: [expense, ...get().expenses].sort(bySpentAtDesc),
         isSaving: false,
       });
+      toastService.success("Gasto registrado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos guardar el gasto", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
@@ -476,11 +555,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
   ): Promise<boolean> => {
     const current = get().expenses.find((item) => item.id === expenseId);
     if (current === undefined) {
-      set({ error: "El gasto seleccionado ya no está disponible." });
+      const message = "El gasto seleccionado ya no está disponible.";
+      set({ error: message });
+      toastService.error("No pudimos actualizar el gasto", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Actualizando el gasto…");
     try {
       const database = await getDatabaseClient();
       const repository = new SqliteExpenseRepository(database);
@@ -491,21 +573,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
           .sort(bySpentAtDesc),
         isSaving: false,
       });
+      toastService.success("Gasto actualizado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos actualizar el gasto", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 
   deleteExpense: async (expenseId: string): Promise<boolean> => {
     const current = get().expenses.find((item) => item.id === expenseId);
     if (current === undefined) {
-      set({ error: "El gasto seleccionado ya no está disponible." });
+      const message = "El gasto seleccionado ya no está disponible.";
+      set({ error: message });
+      toastService.error("No pudimos eliminar el gasto", message);
       return false;
     }
 
     set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Eliminando el gasto…");
     try {
       const database = await getDatabaseClient();
       const repository = new SqliteExpenseRepository(database);
@@ -514,10 +604,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
         expenses: get().expenses.filter((item) => item.id !== expenseId),
         isSaving: false,
       });
+      toastService.success("Gasto eliminado correctamente");
       return true;
     } catch (error: unknown) {
-      set({ isSaving: false, error: getErrorMessage(error) });
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos eliminar el gasto", message);
       return false;
+    } finally {
+      loadingService.stop(operationId);
     }
   },
 

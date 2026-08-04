@@ -6,6 +6,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { DatabaseBackupCard } from "@/features/settings/components/database-backup-card";
 import { useAppStore } from "@/stores/app.store";
 
 export function SettingsScreen() {
@@ -69,12 +70,13 @@ export function SettingsScreen() {
             />
           </div>
           <div className="bg-secondary/70 mt-5 rounded-xl p-4 text-sm">
-            <p className="font-medium">Respaldos manuales</p>
+            <p className="font-medium">Almacenamiento protegido</p>
             <p className="text-muted-foreground mt-1">
-              Se incorporarán junto con caja y reportes en una etapa posterior.
+              Puedes crear y restaurar copias desde esta misma pantalla.
             </p>
           </div>
         </div>
+        <DatabaseBackupCard />
       </div>
     </section>
   );

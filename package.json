@@ -2,6 +2,8 @@
   "name": "nai-citas",
   "private": true,
   "version": "0.1.0",
+  "description": "Aplicación de escritorio offline-first para gestionar citas y finanzas de negocios.",
+  "author": "Naidelyn Maldonado",
   "packageManager": "pnpm@11.18.0",
   "type": "module",
   "scripts": {

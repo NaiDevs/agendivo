@@ -16,6 +16,7 @@ Aplicación de escritorio offline-first para gestionar negocios que trabajan med
 - Reportes financieros diario y mensual con desgloses y balance.
 - Exportación de reportes a Excel (.xlsx).
 - Impresión de recibos de pago.
+- Respaldos y restauración segura de la base de datos.
 - Persistencia local con migraciones SQLite.
 
 ## Requisitos
@@ -78,6 +79,15 @@ pnpm tauri build
 ```
 
 Los artefactos se generan dentro de `src-tauri/target/release/bundle`.
+
+En Windows se generan dos opciones:
+
+- NSIS (`*-setup.exe`): instalación por usuario, recomendada para uso normal.
+- MSI (`*.msi`): instalación administrada para todos los usuarios; requiere
+  privilegios de administrador.
+
+Los instaladores locales no están firmados digitalmente hasta configurar un
+certificado de firma de código.
 
 ## Datos locales
 

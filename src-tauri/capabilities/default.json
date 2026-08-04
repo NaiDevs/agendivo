@@ -9,6 +9,8 @@
     "sql:default",
     "sql:allow-execute",
     "dialog:default",
+    "fs:allow-appconfig-read",
+    "fs:allow-appconfig-write",
     {
       "identifier": "fs:allow-write-file",
       "allow": [

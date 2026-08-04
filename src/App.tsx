@@ -13,6 +13,7 @@ import { ReportsScreen } from "@/features/reports/reports-screen";
 import { ServicesScreen } from "@/features/services/services-screen";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { BusinessSetupForm } from "@/features/settings/components/business-setup-form";
+import { RestoreBackupButton } from "@/features/settings/components/database-backup-card";
 import { APP_PHASE, useAppStore } from "@/stores/app.store";
 
 const AppointmentsScreen = lazy(async () => {
@@ -77,6 +78,12 @@ function App() {
             </h1>
           </div>
           <BusinessSetupForm />
+          <div className="mt-4 flex flex-col items-center gap-2 text-center">
+            <p className="text-muted-foreground text-xs">
+              ¿Ya utilizabas Nai Citas en este equipo o en otro?
+            </p>
+            <RestoreBackupButton />
+          </div>
         </div>
       </main>
     );

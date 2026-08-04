@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/error-message";
+import { loadingService, toastService } from "@/stores/feedback.store";
 
 interface ExportButtonProps {
   onExport: () => Promise<boolean>;
@@ -10,15 +11,24 @@ interface ExportButtonProps {
 
 export function ExportButton({ onExport }: ExportButtonProps) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleExport = async (): Promise<void> => {
     setBusy(true);
-    setError(null);
     try {
-      await onExport();
+      const exported = await loadingService.run(
+        onExport,
+        "Preparando el archivo de Excel…",
+      );
+      if (exported) {
+        toastService.success("Reporte exportado correctamente");
+      } else {
+        toastService.info("Exportación cancelada");
+      }
     } catch (cause: unknown) {
-      setError(getErrorMessage(cause));
+      toastService.error(
+        "No pudimos exportar el reporte",
+        getErrorMessage(cause),
+      );
     } finally {
       setBusy(false);
     }
@@ -36,7 +46,6 @@ export function ExportButton({ onExport }: ExportButtonProps) {
         <Download className="size-4" />
         {busy ? "Exportando…" : "Exportar a Excel"}
       </Button>
-      {error !== null && <span className="text-xs text-red-600">{error}</span>}
     </div>
   );
 }

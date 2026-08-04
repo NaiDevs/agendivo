@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { GlobalFeedback } from "@/components/global-feedback";
 import App from "./App";
 import "./index.css";
 
@@ -12,5 +13,6 @@ if (rootElement === null) {
 createRoot(rootElement).render(
   <StrictMode>
     <App />
+    <GlobalFeedback />
   </StrictMode>,
 );
