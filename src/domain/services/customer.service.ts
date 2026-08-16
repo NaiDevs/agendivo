@@ -35,3 +35,22 @@ export async function createCustomer(
 
   return customer;
 }
+
+export async function updateCustomer(
+  current: Customer,
+  values: CustomerFormValues,
+  repository: CustomerRepository,
+): Promise<Customer> {
+  const input = customerFormSchema.parse(values);
+  const customer: Customer = {
+    ...current,
+    name: input.name,
+    phone: optionalText(input.phone),
+    email: optionalText(input.email),
+    notes: optionalText(input.notes),
+    updatedAt: new Date().toISOString(),
+    version: current.version + 1,
+  };
+  await repository.update(customer);
+  return customer;
+}

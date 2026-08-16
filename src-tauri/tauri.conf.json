@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Nai Citas",
+  "productName": "Agendivo",
   "version": "0.1.0",
-  "identifier": "com.naide.naicitas",
+  "identifier": "com.naide.agendivo",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Nai Citas",
+        "title": "Agendivo",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -24,8 +24,13 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["agendivo"]
+      }
+    },
     "sql": {
-      "preload": ["sqlite:nai-citas.db"]
+      "preload": ["sqlite:agendivo.db"]
     }
   },
   "bundle": {
@@ -34,7 +39,7 @@
     "publisher": "Naidelyn Maldonado",
     "category": "Business",
     "shortDescription": "Gestión offline de citas, clientes y finanzas.",
-    "longDescription": "Nai Citas es una aplicación de escritorio offline-first para administrar clientes, profesionales, servicios, citas, pagos, gastos, reportes y respaldos locales.",
+    "longDescription": "Agendivo es una aplicación de escritorio offline-first para administrar clientes, profesionales, servicios, citas, pagos, gastos, reportes y respaldos locales.",
     "copyright": "Copyright © 2026 Naidelyn Maldonado",
     "icon": [
       "icons/32x32.png",

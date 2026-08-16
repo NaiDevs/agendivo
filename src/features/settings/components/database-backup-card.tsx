@@ -18,6 +18,7 @@ import {
 } from "@/infrastructure/backup/database-backup";
 import { getErrorMessage } from "@/lib/error-message";
 import { APP_PHASE, useAppStore } from "@/stores/app.store";
+import { useAuthStore } from "@/stores/auth.store";
 import { loadingService, toastService } from "@/stores/feedback.store";
 
 const BACKUP_ACTION = {
@@ -188,12 +189,12 @@ function createConfirmationMessage(summary: BackupSummary): string {
     `${summary.counts.customers} clientes · ${summary.counts.appointments} citas`,
     `${summary.counts.payments} pagos · ${summary.counts.expenses} gastos`,
     "",
-    "Los datos actuales serán reemplazados. Nai Citas creará una copia de recuperación automática antes de continuar.",
+    "Los datos actuales serán reemplazados. Agendivo creará una copia de recuperación automática antes de continuar.",
   ].join("\n");
 }
 
 async function executeDatabaseRestore(
-  initialize: () => Promise<void>,
+  initialize: (authenticatedUserId?: string) => Promise<void>,
 ): Promise<void> {
   try {
     const candidate = await loadingService.run(
@@ -219,7 +220,7 @@ async function executeDatabaseRestore(
 
     await loadingService.run(async (): Promise<void> => {
       await restoreDatabaseBackup(candidate);
-      await initialize();
+      await initialize(useAuthStore.getState().user?.id);
       const state = useAppStore.getState();
       if (state.phase === APP_PHASE.ERROR) {
         throw new Error(
@@ -229,7 +230,7 @@ async function executeDatabaseRestore(
     }, "Restaurando y recargando tus datos…");
     toastService.success(
       "Respaldo restaurado correctamente",
-      "Nai Citas ya está usando la información recuperada.",
+      "Agendivo ya está usando la información recuperada.",
     );
   } catch (error: unknown) {
     toastService.error(

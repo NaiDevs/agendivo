@@ -1,11 +1,13 @@
-import { Mail, Phone, Users } from "lucide-react";
+import { Mail, Pencil, Phone, Users } from "lucide-react";
 import type { Customer } from "@/domain/entities/customer";
+import { Button } from "@/components/ui/button";
 
 interface CustomerListProps {
   customers: Customer[];
+  onEdit: (customer: Customer) => void;
 }
 
-export function CustomerList({ customers }: CustomerListProps) {
+export function CustomerList({ customers, onEdit }: CustomerListProps) {
   return (
     <div className="surface-card min-h-80 p-5 sm:p-6">
       <div className="mb-5 flex items-center justify-between">
@@ -39,6 +41,16 @@ export function CustomerList({ customers }: CustomerListProps) {
                   <p className="truncate font-semibold">{customer.name}</p>
                   <p className="text-muted-foreground text-xs">Cliente</p>
                 </div>
+                <Button
+                  aria-label="Editar cliente"
+                  className="ml-auto"
+                  onClick={() => onEdit(customer)}
+                  size="icon"
+                  type="button"
+                  variant="outline"
+                >
+                  <Pencil className="size-4" />
+                </Button>
               </div>
               <div className="text-muted-foreground mt-4 grid gap-2 text-sm">
                 <p className="flex items-center gap-2">

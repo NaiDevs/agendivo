@@ -10,7 +10,7 @@ describe("database backup", () => {
   it("genera un nombre portable con fecha y hora", () => {
     const result = createBackupFileName(new Date(2026, 7, 3, 9, 7));
 
-    expect(result).toBe("nai-citas-2026-08-03_09-07.sqlite");
+    expect(result).toBe("agendivo-2026-08-03_09-07.sqlite");
   });
 
   it("reconoce la cabecera oficial de SQLite", () => {

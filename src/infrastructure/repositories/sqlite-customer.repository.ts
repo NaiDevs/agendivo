@@ -73,4 +73,21 @@ export class SqliteCustomerRepository implements CustomerRepository {
       ],
     );
   }
+
+  async update(customer: Customer): Promise<void> {
+    await this.database.execute(
+      `UPDATE customers SET name = ?, phone = ?, email = ?, notes = ?,
+         updated_at = ?, version = ?, device_id = ? WHERE id = ?`,
+      [
+        customer.name,
+        customer.phone,
+        customer.email,
+        customer.notes,
+        customer.updatedAt,
+        customer.version,
+        customer.deviceId,
+        customer.id,
+      ],
+    );
+  }
 }

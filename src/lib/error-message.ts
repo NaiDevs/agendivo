@@ -6,5 +6,16 @@ export function getErrorMessage(error: unknown): string {
     return error.message;
   }
 
+  if (typeof error === "string" && error.trim() !== "") {
+    return error;
+  }
+
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = error.message;
+    if (typeof message === "string" && message.trim() !== "") {
+      return message;
+    }
+  }
+
   return "Ocurrió un error inesperado. Intenta nuevamente.";
 }

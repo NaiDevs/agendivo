@@ -1,6 +1,6 @@
 use tauri_plugin_sql::{Migration, MigrationKind};
 
-pub const DATABASE_URL: &str = "sqlite:nai-citas.db";
+pub const DATABASE_URL: &str = "sqlite:agendivo.db";
 
 pub fn migrations() -> Vec<Migration> {
     vec![
@@ -44,6 +44,18 @@ pub fn migrations() -> Vec<Migration> {
             version: 7,
             description: "create_expenses",
             sql: include_str!("../migrations/0007_expenses.up.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 8,
+            description: "create_fiscal_configuration",
+            sql: include_str!("../migrations/0008_fiscal_configuration.up.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 9,
+            description: "add_employee_accounts",
+            sql: include_str!("../migrations/0009_employee_accounts.up.sql"),
             kind: MigrationKind::Up,
         },
     ]

@@ -1,6 +1,15 @@
 # Changelog
 
-Todos los cambios relevantes de Nai Citas se documentan en este archivo.
+Todos los cambios relevantes de Agendivo se documentan en este archivo.
+
+## [Sin publicar]
+
+### Agregado
+
+- Registro e inicio de sesión mediante Supabase Auth.
+- Modelo multi-negocio protegido con Row Level Security.
+- Copia nube versionada de clientes, profesionales, servicios y citas.
+- Stripe Checkout para suscripciones y webhook idempotente.
 
 ## [0.1.0] - 2026-08-03
 

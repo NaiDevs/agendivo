@@ -3,14 +3,29 @@ import {
   Database,
   HardDrive,
   MapPin,
+  Pencil,
+  ReceiptText,
   ShieldCheck,
 } from "lucide-react";
+import { useState } from "react";
 
 import { DatabaseBackupCard } from "@/features/settings/components/database-backup-card";
+import { AccountCard } from "@/features/settings/components/account-card";
+import { CloudSyncCard } from "@/features/settings/components/cloud-sync-card";
+import { SubscriptionCard } from "@/features/settings/components/subscription-card";
 import { useAppStore } from "@/stores/app.store";
+import { Button } from "@/components/ui/button";
+import { BusinessProfileForm } from "@/features/settings/components/business-profile-form";
+import { FiscalCorrelativeForm } from "@/features/settings/components/fiscal-correlative-form";
 
 export function SettingsScreen() {
   const business = useAppStore((state) => state.business);
+  const fiscalConfiguration = useAppStore((state) => state.fiscalConfiguration);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editingFiscal, setEditingFiscal] = useState(false);
+  const hasFiscalAuthorization =
+    fiscalConfiguration?.authorization !== null &&
+    fiscalConfiguration?.authorization !== undefined;
   if (business === null) return null;
 
   return (
@@ -23,8 +38,12 @@ export function SettingsScreen() {
         </p>
       </header>
       <div className="grid gap-5 lg:grid-cols-2">
-        <div className="surface-card p-5 sm:p-6">
-          <div className="flex items-center gap-3">
+        <div
+          className={`surface-card p-5 sm:p-6 ${editingProfile ? "lg:col-span-2" : ""}`}
+        >
+          <div
+            className={editingProfile ? "hidden" : "flex items-center gap-3"}
+          >
             <div className="bg-primary/10 text-primary flex size-10 items-center justify-center rounded-xl">
               <Building2 className="size-5" />
             </div>
@@ -32,8 +51,17 @@ export function SettingsScreen() {
               <h2 className="font-semibold">Datos del negocio</h2>
               <p className="text-muted-foreground text-sm">Perfil principal</p>
             </div>
+            <Button
+              className="ml-auto gap-2"
+              onClick={() => setEditingProfile(true)}
+              type="button"
+              variant="outline"
+            >
+              <Pencil className="size-4" />
+              Editar
+            </Button>
           </div>
-          <dl className="mt-6 grid gap-4 text-sm">
+          <dl className={editingProfile ? "hidden" : "mt-6 grid gap-4 text-sm"}>
             <Info label="Nombre" value={business.name} />
             <Info label="Teléfono" value={business.phone ?? "No registrado"} />
             <Info label="Correo" value={business.email ?? "No registrado"} />
@@ -44,6 +72,71 @@ export function SettingsScreen() {
             />
             <Info label="Moneda" value={business.currency} />
           </dl>
+          {editingProfile && (
+            <BusinessProfileForm
+              business={business}
+              onClose={() => setEditingProfile(false)}
+            />
+          )}
+        </div>
+        <div
+          className={`surface-card p-5 sm:p-6 ${editingFiscal ? "lg:col-span-2" : ""}`}
+        >
+          <div className={editingFiscal ? "hidden" : "flex items-center gap-3"}>
+            <div className="bg-primary/10 text-primary flex size-10 items-center justify-center rounded-xl">
+              <ReceiptText className="size-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Correlativo fiscal</h2>
+              <p className="text-muted-foreground text-sm">
+                CAI y rango autorizado
+              </p>
+            </div>
+            <Button
+              className="ml-auto gap-2"
+              onClick={() => setEditingFiscal(true)}
+              type="button"
+              variant={hasFiscalAuthorization ? "outline" : "default"}
+            >
+              <Pencil className="size-4" />
+              {hasFiscalAuthorization ? "Editar" : "Configurar"}
+            </Button>
+          </div>
+          {fiscalConfiguration?.authorization === null ||
+          fiscalConfiguration === null ? (
+            <p
+              className={
+                editingFiscal ? "hidden" : "text-muted-foreground mt-5 text-sm"
+              }
+            >
+              No hay un correlativo fiscal activo.
+            </p>
+          ) : (
+            <dl
+              className={editingFiscal ? "hidden" : "mt-6 grid gap-4 text-sm"}
+            >
+              <Info label="CAI" value={fiscalConfiguration.authorization.cai} />
+              <Info
+                label="Rango"
+                value={`${fiscalConfiguration.authorization.rangeStart} - ${fiscalConfiguration.authorization.rangeEnd}`}
+              />
+              <Info
+                label="Próximo"
+                value={String(fiscalConfiguration.authorization.nextNumber)}
+              />
+              <Info
+                label="Vence"
+                value={fiscalConfiguration.authorization.validUntil}
+              />
+            </dl>
+          )}
+          {editingFiscal && (
+            <FiscalCorrelativeForm
+              businessName={business.name}
+              configuration={fiscalConfiguration}
+              onClose={() => setEditingFiscal(false)}
+            />
+          )}
         </div>
         <div className="surface-card p-5 sm:p-6">
           <div className="flex items-center gap-3">
@@ -77,6 +170,9 @@ export function SettingsScreen() {
           </div>
         </div>
         <DatabaseBackupCard />
+        <CloudSyncCard />
+        <SubscriptionCard />
+        <AccountCard />
       </div>
     </section>
   );

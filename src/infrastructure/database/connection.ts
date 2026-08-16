@@ -2,7 +2,7 @@ import Database from "@tauri-apps/plugin-sql";
 
 import type { DatabaseClient } from "@/infrastructure/database/database-client";
 
-export const DATABASE_FILE_NAME = "nai-citas.db";
+export const DATABASE_FILE_NAME = "agendivo.db";
 export const DATABASE_URL = `sqlite:${DATABASE_FILE_NAME}`;
 
 let databasePromise: Promise<Database> | null = null;

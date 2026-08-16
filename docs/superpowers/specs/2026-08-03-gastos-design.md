@@ -5,7 +5,7 @@ Estado: aprobado, pendiente de implementación
 
 ## Contexto
 
-Segunda entrega de la Fase 3 (Finanzas) de Nai Citas. La entrega 1 (Pagos) ya
+Segunda entrega de la Fase 3 (Finanzas) de Agendivo. La entrega 1 (Pagos) ya
 está completa. Esta cubre **Gastos**. Reportes, exportación e impresión quedan
 fuera de alcance.
 

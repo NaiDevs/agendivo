@@ -1,5 +1,5 @@
 {
-  "name": "nai-citas",
+  "name": "agendivo",
   "private": true,
   "version": "0.1.0",
   "description": "Aplicación de escritorio offline-first para gestionar citas y finanzas de negocios.",
@@ -27,7 +27,9 @@
     "@fullcalendar/react": "^6.1.21",
     "@fullcalendar/timegrid": "^6.1.21",
     "@hookform/resolvers": "^5.6.0",
+    "@supabase/supabase-js": "^2.111.0",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-deep-link": "^2.4.9",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@tauri-apps/plugin-opener": "^2",

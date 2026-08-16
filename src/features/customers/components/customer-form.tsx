@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { UserPlus } from "lucide-react";
+import { Pencil, UserPlus } from "lucide-react";
+import { useEffect } from "react";
 
 import { FieldError } from "@/components/field-error";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,9 +20,21 @@ import {
   type CustomerFormValues,
 } from "@/schemas/customer.schema";
 import { useAppStore } from "@/stores/app.store";
+import type { Customer } from "@/domain/entities/customer";
 
-export function CustomerForm() {
+interface CustomerFormProps {
+  customer: Customer | null;
+  onCancelEdit: () => void;
+  onSaved: () => void;
+}
+
+export function CustomerForm({
+  customer,
+  onCancelEdit,
+  onSaved,
+}: CustomerFormProps) {
   const addCustomer = useAppStore((state) => state.addCustomer);
+  const editCustomer = useAppStore((state) => state.editCustomer);
   const isSaving = useAppStore((state) => state.isSaving);
   const error = useAppStore((state) => state.error);
   const clearError = useAppStore((state) => state.clearError);
@@ -35,11 +48,24 @@ export function CustomerForm() {
     defaultValues: { name: "", phone: "", email: "", notes: "" },
   });
 
+  useEffect(() => {
+    reset({
+      name: customer?.name ?? "",
+      phone: customer?.phone ?? "",
+      email: customer?.email ?? "",
+      notes: customer?.notes ?? "",
+    });
+  }, [customer, reset]);
+
   const onSubmit = handleSubmit(async (values): Promise<void> => {
     clearError();
-    const saved = await addCustomer(values);
+    const saved =
+      customer === null
+        ? await addCustomer(values)
+        : await editCustomer(customer.id, values);
     if (saved) {
       reset();
+      onSaved();
     }
   });
 
@@ -47,9 +73,15 @@ export function CustomerForm() {
     <Card className="shadow-sm">
       <CardHeader>
         <div className="bg-primary/10 text-primary mb-2 flex size-10 items-center justify-center rounded-xl">
-          <UserPlus className="size-5" />
+          {customer === null ? (
+            <UserPlus className="size-5" />
+          ) : (
+            <Pencil className="size-5" />
+          )}
         </div>
-        <CardTitle>Nuevo cliente</CardTitle>
+        <CardTitle>
+          {customer === null ? "Nuevo cliente" : "Editar cliente"}
+        </CardTitle>
         <CardDescription>
           Nombre es obligatorio; los demás datos son opcionales.
         </CardDescription>
@@ -96,6 +128,11 @@ export function CustomerForm() {
             <FieldError message={errors.notes?.message} />
           </div>
 
+          {customer !== null && (
+            <Button onClick={onCancelEdit} type="button" variant="outline">
+              Cancelar edición
+            </Button>
+          )}
           <Button className="mt-1 h-10" disabled={isSaving} type="submit">
             {isSaving ? "Guardando…" : "Registrar cliente"}
           </Button>

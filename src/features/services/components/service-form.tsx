@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Scissors } from "lucide-react";
+import { Pencil, Scissors } from "lucide-react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 
 import { FieldError } from "@/components/field-error";
@@ -13,9 +14,21 @@ import {
   type ServiceFormValues,
 } from "@/schemas/service.schema";
 import { useAppStore } from "@/stores/app.store";
+import type { Service } from "@/domain/entities/service";
 
-export function ServiceForm() {
+interface ServiceFormProps {
+  service: Service | null;
+  onCancelEdit: () => void;
+  onSaved: () => void;
+}
+
+export function ServiceForm({
+  service,
+  onCancelEdit,
+  onSaved,
+}: ServiceFormProps) {
   const addService = useAppStore((state) => state.addService);
+  const editService = useAppStore((state) => state.editService);
   const isSaving = useAppStore((state) => state.isSaving);
   const error = useAppStore((state) => state.error);
   const clearError = useAppStore((state) => state.clearError);
@@ -29,10 +42,24 @@ export function ServiceForm() {
     defaultValues: { name: "", description: "", durationMinutes: 30, price: 0 },
   });
 
+  useEffect(() => {
+    reset({
+      name: service?.name ?? "",
+      description: service?.description ?? "",
+      durationMinutes: service?.durationMinutes ?? 30,
+      price: service === null ? 0 : service.price / 100,
+    });
+  }, [reset, service]);
+
   const onSubmit = handleSubmit(async (values): Promise<void> => {
     clearError();
-    if (await addService(values)) {
+    const saved =
+      service === null
+        ? await addService(values)
+        : await editService(service.id, values);
+    if (saved) {
       reset({ name: "", description: "", durationMinutes: 30, price: 0 });
+      onSaved();
     }
   });
 
@@ -40,9 +67,15 @@ export function ServiceForm() {
     <Card className="shadow-sm">
       <CardHeader>
         <div className="bg-primary/10 text-primary mb-2 flex size-10 items-center justify-center rounded-xl">
-          <Scissors className="size-5" />
+          {service === null ? (
+            <Scissors className="size-5" />
+          ) : (
+            <Pencil className="size-5" />
+          )}
         </div>
-        <CardTitle>Nuevo servicio</CardTitle>
+        <CardTitle>
+          {service === null ? "Nuevo servicio" : "Editar servicio"}
+        </CardTitle>
         <p className="text-muted-foreground text-sm">
           Define tiempo y precio para agendarlo después.
         </p>
@@ -98,6 +131,11 @@ export function ServiceForm() {
             />
             <FieldError message={errors.description?.message} />
           </div>
+          {service !== null && (
+            <Button onClick={onCancelEdit} type="button" variant="outline">
+              Cancelar edición
+            </Button>
+          )}
           <Button className="mt-1 h-10" disabled={isSaving} type="submit">
             {isSaving ? "Guardando…" : "Crear servicio"}
           </Button>

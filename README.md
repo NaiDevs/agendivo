@@ -1,4 +1,4 @@
-# Nai Citas
+# Agendivo
 
 Aplicación de escritorio offline-first para gestionar negocios que trabajan mediante citas. El MVP usa Tauri 2, React, TypeScript y SQLite; no requiere un backend remoto.
 
@@ -54,6 +54,29 @@ La descarga de dependencias requiere internet únicamente durante la instalació
 pnpm tauri dev
 ```
 
+## Autenticación y Supabase
+
+La Fase 6 incorpora autenticación opcional durante la transición desde la
+versión local. Copia `.env.example` como `.env.local` y configura:
+
+```env
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+```
+
+Aplica en el proyecto Supabase la migración
+`supabase/migrations/202608030001_auth_tenancy.sql`. Cuando ambas variables
+están definidas, Agendivo exige una cuenta antes de abrir la base SQLite. Sin
+ellas, la aplicación conserva el funcionamiento local de la versión 0.1.0.
+
+En **Authentication → URL Configuration → Redirect URLs** agrega exactamente
+`agendivo://auth/callback`. El instalador registra el esquema `agendivo://` en
+Windows, macOS y Linux para que la confirmación por correo regrese a la app.
+
+Las migraciones siguientes agregan la copia nube versionada y las suscripciones
+de Stripe. Las claves privadas de Stripe se configuran únicamente como secretos
+de Supabase; nunca forman parte del instalador.
+
 ## Verificaciones
 
 ```bash
@@ -91,10 +114,10 @@ certificado de firma de código.
 
 ## Datos locales
 
-SQLite se inicializa automáticamente como `nai-citas.db` en el directorio de datos de la aplicación:
+SQLite se inicializa automáticamente como `agendivo.db` en el directorio de datos de la aplicación. Al actualizar una instalación anterior, Agendivo copia automáticamente la base heredada:
 
-- Windows: `%APPDATA%\com.naide.naicitas\nai-citas.db`
-- macOS: `~/Library/Application Support/com.naide.naicitas/nai-citas.db`
+- Windows: `%APPDATA%\com.naide.agendivo\agendivo.db`
+- macOS: `~/Library/Application Support/com.naide.agendivo/agendivo.db`
 
 Las migraciones viven en `src-tauri/migrations` y se ejecutan una sola vez. Las migraciones aplicadas no deben modificarse; cualquier cambio de esquema requiere una migración nueva.
 

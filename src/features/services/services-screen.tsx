@@ -1,13 +1,17 @@
-import { Clock3, Scissors } from "lucide-react";
+import { Clock3, Pencil, Scissors } from "lucide-react";
+import { useState } from "react";
 
 import { ServiceForm } from "@/features/services/components/service-form";
 import { formatMoney } from "@/lib/format-money";
 import { useAppStore } from "@/stores/app.store";
+import type { Service } from "@/domain/entities/service";
+import { Button } from "@/components/ui/button";
 
 export function ServicesScreen() {
   const business = useAppStore((state) => state.business);
   const services = useAppStore((state) => state.services);
   const currency = business?.currency ?? "GTQ";
+  const [editing, setEditing] = useState<Service | null>(null);
 
   return (
     <section className="page-enter grid gap-6">
@@ -19,7 +23,11 @@ export function ServicesScreen() {
         </p>
       </header>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(280px,0.72fr)_1.28fr]">
-        <ServiceForm />
+        <ServiceForm
+          service={editing}
+          onCancelEdit={() => setEditing(null)}
+          onSaved={() => setEditing(null)}
+        />
         <div className="surface-card min-h-80 p-5 sm:p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
@@ -51,6 +59,15 @@ export function ServicesScreen() {
                     <span className="text-primary text-base font-bold">
                       {formatMoney(service.price, currency)}
                     </span>
+                    <Button
+                      aria-label="Editar servicio"
+                      onClick={() => setEditing(service)}
+                      size="icon"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
                   </div>
                   <h3 className="mt-4 font-semibold">{service.name}</h3>
                   <p className="text-muted-foreground mt-1 min-h-5 truncate text-sm">

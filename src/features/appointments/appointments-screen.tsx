@@ -8,7 +8,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import { CalendarPlus, CircleAlert } from "lucide-react";
+import { CalendarPlus, CircleAlert, Pencil } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,16 @@ export function AppointmentsScreen() {
             dayMaxEvents
             events={events}
             eventClick={onEventClick}
+            eventContent={(eventInfo) => (
+              <button
+                aria-label={`Editar ${eventInfo.event.title}`}
+                className="flex w-full items-center justify-between gap-1 overflow-hidden px-1 text-left"
+                type="button"
+              >
+                <span className="truncate">{eventInfo.event.title}</span>
+                <Pencil className="size-3 shrink-0" />
+              </button>
+            )}
             expandRows
             headerToolbar={{
               left: "prev,next today",

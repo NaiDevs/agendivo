@@ -9,11 +9,13 @@ import {
   Sparkles,
   Users,
   UsersRound,
+  Wifi,
   WifiOff,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { APP_SECTION, type AppSection } from "@/app/navigation";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app.store";
 
@@ -58,6 +60,8 @@ export function AppShell({
   onNavigate,
 }: AppShellProps) {
   const business = useAppStore((state) => state.business);
+  const isOnline = useOnlineStatus();
+  const NetworkIcon = isOnline ? Wifi : WifiOff;
 
   return (
     <div className="bg-background h-screen overflow-hidden lg:grid lg:grid-cols-[248px_1fr]">
@@ -68,7 +72,7 @@ export function AppShell({
           </div>
           <div className="min-w-0">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-white/45 uppercase">
-              Nai Citas
+              Agendivo
             </p>
             <p className="truncate font-semibold text-white">
               {business?.name}
@@ -101,8 +105,17 @@ export function AppShell({
             <span>Configuración</span>
           </button>
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/8 bg-white/4 px-3 py-3 text-xs text-white/55">
-            <WifiOff className="text-primary size-4" />
-            <span>Modo local · Sin internet</span>
+            <NetworkIcon
+              className={cn(
+                "size-4",
+                isOnline ? "text-emerald-400" : "text-primary",
+              )}
+            />
+            <span>
+              {isOnline
+                ? "Modo conectado · Internet disponible"
+                : "Modo local · Sin internet"}
+            </span>
           </div>
         </div>
       </aside>
@@ -114,7 +127,7 @@ export function AppShell({
               <Sparkles className="size-4" />
             </div>
             <div>
-              <p className="text-muted-foreground text-xs">Nai Citas</p>
+              <p className="text-muted-foreground text-xs">Agendivo</p>
               <p className="max-w-44 truncate text-sm font-semibold">
                 {business?.name}
               </p>

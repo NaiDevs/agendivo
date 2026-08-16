@@ -93,7 +93,7 @@ export function createBackupFileName(date = new Date()): string {
   const part = (type: Intl.DateTimeFormatPartTypes): string =>
     parts.find((item) => item.type === type)?.value ?? "00";
 
-  return `nai-citas-${part("year")}-${part("month")}-${part("day")}_${part("hour")}-${part("minute")}.sqlite`;
+  return `agendivo-${part("year")}-${part("month")}-${part("day")}_${part("hour")}-${part("minute")}.sqlite`;
 }
 
 export function isSqliteHeader(bytes: Uint8Array): boolean {
@@ -113,8 +113,8 @@ export function getMissingRequiredTables(tableNames: string[]): string[] {
 export async function createDatabaseBackup(): Promise<BackupResult> {
   const destination = await save({
     defaultPath: createBackupFileName(),
-    filters: [{ name: "Respaldo de Nai Citas", extensions: ["sqlite", "db"] }],
-    title: "Guardar respaldo de Nai Citas",
+    filters: [{ name: "Respaldo de Agendivo", extensions: ["sqlite", "db"] }],
+    title: "Guardar respaldo de Agendivo",
   });
 
   if (destination === null) {
@@ -142,9 +142,9 @@ export async function createDatabaseBackup(): Promise<BackupResult> {
 
 export async function selectRestoreCandidate(): Promise<RestoreCandidate | null> {
   const sourcePath = await openDialog({
-    filters: [{ name: "Respaldo de Nai Citas", extensions: ["sqlite", "db"] }],
+    filters: [{ name: "Respaldo de Agendivo", extensions: ["sqlite", "db"] }],
     multiple: false,
-    title: "Seleccionar respaldo de Nai Citas",
+    title: "Seleccionar respaldo de Agendivo",
   });
 
   if (sourcePath === null) {
@@ -228,7 +228,7 @@ async function validateDatabase(database: Database): Promise<BackupSummary> {
   );
   if (missingTables.length > 0) {
     throw new Error(
-      "El respaldo no pertenece a una versión compatible de Nai Citas.",
+      "El respaldo no pertenece a una versión compatible de Agendivo.",
     );
   }
 
@@ -272,7 +272,7 @@ async function createTemporaryDatabasePath(label: string): Promise<{
   path: string;
   url: string;
 }> {
-  const fileName = `nai-citas-${label}-${crypto.randomUUID()}.db`;
+  const fileName = `agendivo-${label}-${crypto.randomUUID()}.db`;
   return {
     path: await join(await appConfigDir(), fileName),
     url: `sqlite:${fileName}`,

@@ -5,7 +5,7 @@ Estado: aprobado, pendiente de implementación
 
 ## Contexto
 
-Nai Citas (Turnivo) es una app de escritorio offline-first (Tauri 2 + React 19 +
+Agendivo es una app de escritorio offline-first (Tauri 2 + React 19 +
 TypeScript + SQLite) para gestionar negocios por citas. Las Fases 1 y 2 están
 completas: negocio, clientes, empleados, servicios, citas y calendario con
 validación de solapamiento.

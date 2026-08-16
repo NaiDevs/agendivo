@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import type { Employee } from "@/domain/entities/employee";
+import {
+  EMPLOYEE_ACCOUNT_ROLE,
+  type Employee,
+} from "@/domain/entities/employee";
 import type { EmployeeRepository } from "@/domain/repositories/employee.repository";
 import type { DatabaseClient } from "@/infrastructure/database/database-client";
 
@@ -11,6 +14,11 @@ const employeeRowSchema = z.object({
   phone: z.string().nullable(),
   email: z.string().nullable(),
   color: z.string(),
+  user_id: z.string().uuid().nullable(),
+  account_role: z.enum([
+    EMPLOYEE_ACCOUNT_ROLE.OWNER,
+    EMPLOYEE_ACCOUNT_ROLE.EMPLOYEE,
+  ]),
   created_at: z.string(),
   updated_at: z.string(),
   deleted_at: z.string().nullable(),
@@ -28,6 +36,8 @@ function mapEmployee(row: EmployeeRow): Employee {
     phone: row.phone,
     email: row.email,
     color: row.color,
+    userId: row.user_id,
+    accountRole: row.account_role,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -41,7 +51,7 @@ export class SqliteEmployeeRepository implements EmployeeRepository {
 
   async findActiveByBusiness(businessId: string): Promise<Employee[]> {
     const rows = await this.database.select<unknown[]>(
-      `SELECT id, business_id, name, phone, email, color,
+      `SELECT id, business_id, name, phone, email, color, user_id, account_role,
               created_at, updated_at, deleted_at, version, device_id
        FROM employees
        WHERE business_id = ? AND deleted_at IS NULL
@@ -55,9 +65,9 @@ export class SqliteEmployeeRepository implements EmployeeRepository {
   async create(employee: Employee): Promise<void> {
     await this.database.execute(
       `INSERT INTO employees (
-         id, business_id, name, phone, email, color,
+         id, business_id, name, phone, email, color, user_id, account_role,
          created_at, updated_at, deleted_at, version, device_id
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         employee.id,
         employee.businessId,
@@ -65,11 +75,33 @@ export class SqliteEmployeeRepository implements EmployeeRepository {
         employee.phone,
         employee.email,
         employee.color,
+        employee.userId,
+        employee.accountRole,
         employee.createdAt,
         employee.updatedAt,
         employee.deletedAt,
         employee.version,
         employee.deviceId,
+      ],
+    );
+  }
+
+  async update(employee: Employee): Promise<void> {
+    await this.database.execute(
+      `UPDATE employees SET name = ?, phone = ?, email = ?, color = ?,
+         user_id = ?, account_role = ?, updated_at = ?, version = ?,
+         device_id = ? WHERE id = ?`,
+      [
+        employee.name,
+        employee.phone,
+        employee.email,
+        employee.color,
+        employee.userId,
+        employee.accountRole,
+        employee.updatedAt,
+        employee.version,
+        employee.deviceId,
+        employee.id,
       ],
     );
   }

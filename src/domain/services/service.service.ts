@@ -30,3 +30,22 @@ export async function createService(
   await repository.create(service);
   return service;
 }
+
+export async function updateService(
+  current: Service,
+  values: ServiceFormValues,
+  repository: ServiceRepository,
+): Promise<Service> {
+  const input = serviceFormSchema.parse(values);
+  const service: Service = {
+    ...current,
+    name: input.name,
+    description: input.description === "" ? null : input.description,
+    durationMinutes: input.durationMinutes,
+    price: Math.round(input.price * 100),
+    updatedAt: new Date().toISOString(),
+    version: current.version + 1,
+  };
+  await repository.update(service);
+  return service;
+}

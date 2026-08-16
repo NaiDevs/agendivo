@@ -5,7 +5,7 @@ Estado: aprobado, pendiente de implementación
 
 ## Contexto
 
-Cuarta y última entrega de la Fase 3 (Finanzas) de Nai Citas. Pagos, gastos,
+Cuarta y última entrega de la Fase 3 (Finanzas) de Agendivo. Pagos, gastos,
 reportes y exportación ya están completos. Esta cubre la **impresión de
 comprobantes**, entendidos como **recibos de pago**.
 

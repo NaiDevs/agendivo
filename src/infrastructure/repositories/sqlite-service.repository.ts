@@ -73,4 +73,21 @@ export class SqliteServiceRepository implements ServiceRepository {
       ],
     );
   }
+
+  async update(service: Service): Promise<void> {
+    await this.database.execute(
+      `UPDATE services SET name = ?, description = ?, duration_minutes = ?,
+         price = ?, updated_at = ?, version = ?, device_id = ? WHERE id = ?`,
+      [
+        service.name,
+        service.description,
+        service.durationMinutes,
+        service.price,
+        service.updatedAt,
+        service.version,
+        service.deviceId,
+        service.id,
+      ],
+    );
+  }
 }
