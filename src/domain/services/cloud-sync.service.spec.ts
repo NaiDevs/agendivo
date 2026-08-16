@@ -1,90 +1,173 @@
-import { describe, expect, it, vi } from "vitest";
-
+import { describe, it, expect, vi } from "vitest";
+import { synchronizeBusiness } from "./cloud-sync.service";
 import type { Business } from "@/domain/entities/business";
-import type { SyncSnapshot } from "@/domain/entities/sync-snapshot";
 import type {
   CloudSyncRepository,
   LocalSyncSource,
+  LocalSyncDestination,
 } from "@/domain/repositories/cloud-sync.repository";
-import { synchronizeBusiness } from "@/domain/services/cloud-sync.service";
+import type {
+  SyncSnapshot,
+  SyncPullResult,
+} from "@/domain/entities/sync-snapshot";
 
-const business: Business = {
-  id: "10000000-0000-4000-8000-000000000001",
-  name: "Agendivo Demo",
+const BUSINESS: Business = {
+  id: "biz-001",
+  name: "Barbería Central",
   phone: null,
   email: null,
   address: null,
   timezone: "America/Tegucigalpa",
   currency: "HNL",
-  createdAt: "2026-08-03T10:00:00.000Z",
-  updatedAt: "2026-08-03T10:00:00.000Z",
+  createdAt: "2026-08-01T00:00:00Z",
+  updatedAt: "2026-08-01T00:00:00Z",
   deletedAt: null,
   version: 1,
-  deviceId: "20000000-0000-4000-8000-000000000001",
+  deviceId: "dev-001",
 };
 
-const snapshot: SyncSnapshot = {
+const EMPTY_SNAPSHOT: SyncSnapshot = {
   business: {
-    id: business.id,
-    name: business.name,
+    id: BUSINESS.id,
+    name: BUSINESS.name,
     phone: null,
     email: null,
     address: null,
-    timezone: business.timezone,
-    currency: business.currency,
-    created_at: business.createdAt,
-    updated_at: business.updatedAt,
+    timezone: BUSINESS.timezone,
+    currency: BUSINESS.currency,
+    created_at: BUSINESS.createdAt,
+    updated_at: BUSINESS.updatedAt,
     deleted_at: null,
     version: 1,
-    device_id: business.deviceId,
+    device_id: "dev-001",
   },
   customers: [],
-  emissionPoints: [],
   employees: [],
-  fiscalAuthorizations: [],
+  services: [],
+  appointments: [],
   fiscalProfiles: [],
+  emissionPoints: [],
+  fiscalAuthorizations: [],
+};
+
+const PULL_RESULT: SyncPullResult = {
+  customers: [
+    {
+      id: "cust-999",
+      business_id: BUSINESS.id,
+      name: "Cliente Remoto",
+      phone: null,
+      email: null,
+      notes: null,
+      created_at: "2026-08-10T00:00:00Z",
+      updated_at: "2026-08-10T00:00:00Z",
+      deleted_at: null,
+      version: 1,
+      device_id: "dev-002",
+    },
+  ],
+  employees: [],
   services: [],
   appointments: [],
 };
 
+function makeCloudRepo(
+  overrides?: Partial<CloudSyncRepository>,
+): CloudSyncRepository {
+  return {
+    ensureBusiness: vi.fn().mockResolvedValue(undefined),
+    push: vi.fn().mockResolvedValue("2026-08-15T10:00:00Z"),
+    pull: vi.fn().mockResolvedValue(PULL_RESULT),
+    ...overrides,
+  };
+}
+
+function makeLocalSource(): LocalSyncSource {
+  return {
+    readSnapshot: vi.fn().mockResolvedValue(EMPTY_SNAPSHOT),
+  };
+}
+
+function makeLocalDestination(): LocalSyncDestination {
+  return {
+    writeSnapshot: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 describe("synchronizeBusiness", () => {
-  it("crea el tenant antes de enviar la instantánea local", async () => {
-    const calls: string[] = [];
-    const localSource: LocalSyncSource = {
-      readSnapshot: vi.fn(async (): Promise<SyncSnapshot> => {
-        calls.push("snapshot");
-        return snapshot;
-      }),
-    };
-    const cloudRepository: CloudSyncRepository = {
-      ensureBusiness: vi.fn(async (): Promise<void> => {
-        calls.push("business");
-      }),
-      push: vi.fn(async (): Promise<string> => {
-        calls.push("push");
-        return "2026-08-03T10:01:00.000Z";
-      }),
-    };
+  it("empuja datos locales y luego descarga los remotos", async () => {
+    const cloud = makeCloudRepo();
+    const source = makeLocalSource();
+    const destination = makeLocalDestination();
 
     const result = await synchronizeBusiness(
-      business,
-      business.deviceId,
-      "Equipo de prueba",
-      localSource,
-      cloudRepository,
+      BUSINESS,
+      "dev-001",
+      "Mi Equipo",
+      null,
+      source,
+      destination,
+      cloud,
     );
 
-    expect(result).toBe("2026-08-03T10:01:00.000Z");
-    expect(calls).toEqual(["business", "snapshot", "push"]);
-    expect(cloudRepository.ensureBusiness).toHaveBeenCalledWith(
-      business.id,
-      business.name,
+    expect(cloud.ensureBusiness).toHaveBeenCalledWith(
+      BUSINESS.id,
+      BUSINESS.name,
     );
-    expect(cloudRepository.push).toHaveBeenCalledWith(
-      business.id,
-      business.deviceId,
-      "Equipo de prueba",
-      snapshot,
+    expect(cloud.push).toHaveBeenCalledOnce();
+    expect(cloud.pull).toHaveBeenCalledWith(BUSINESS.id, "dev-001", null);
+    expect(destination.writeSnapshot).toHaveBeenCalledWith(
+      BUSINESS.id,
+      PULL_RESULT,
     );
+    expect(result.syncedAt).toBe("2026-08-15T10:00:00Z");
+    expect(result.pulled).toBe(1);
+  });
+
+  it("pasa lastSyncedAt al pull cuando se provee", async () => {
+    const cloud = makeCloudRepo();
+    const source = makeLocalSource();
+    const destination = makeLocalDestination();
+
+    await synchronizeBusiness(
+      BUSINESS,
+      "dev-001",
+      "Mi Equipo",
+      "2026-08-10T00:00:00Z",
+      source,
+      destination,
+      cloud,
+    );
+
+    expect(cloud.pull).toHaveBeenCalledWith(
+      BUSINESS.id,
+      "dev-001",
+      "2026-08-10T00:00:00Z",
+    );
+  });
+
+  it("no llama writeSnapshot si pull no devuelve registros", async () => {
+    const emptyPull: SyncPullResult = {
+      customers: [],
+      employees: [],
+      services: [],
+      appointments: [],
+    };
+    const cloud = makeCloudRepo({ pull: vi.fn().mockResolvedValue(emptyPull) });
+    const source = makeLocalSource();
+    const destination = makeLocalDestination();
+
+    const result = await synchronizeBusiness(
+      BUSINESS,
+      "dev-001",
+      "Mi Equipo",
+      "2026-08-15T00:00:00Z",
+      source,
+      destination,
+      cloud,
+    );
+
+    expect(destination.writeSnapshot).not.toHaveBeenCalled();
+    expect(result.pulled).toBe(0);
   });
 });

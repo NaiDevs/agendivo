@@ -1,4 +1,9 @@
-import type { SyncSnapshot } from "@/domain/entities/sync-snapshot";
+import { z } from "zod";
+import { APPOINTMENT_STATUS } from "@/domain/entities/appointment";
+import type {
+  SyncPullResult,
+  SyncSnapshot,
+} from "@/domain/entities/sync-snapshot";
 import type { CloudSyncRepository } from "@/domain/repositories/cloud-sync.repository";
 import { getSupabaseClient } from "@/infrastructure/supabase/client";
 
@@ -18,6 +23,71 @@ function isSyncPushResponse(value: unknown): value is SyncPushResponse {
   );
 }
 
+const syncFields = {
+  created_at: z.string(),
+  updated_at: z.string(),
+  deleted_at: z.string().nullable(),
+  version: z.number().int().positive(),
+  device_id: z.string().uuid(),
+};
+
+const pullCustomerSchema = z.object({
+  id: z.string().uuid(),
+  business_id: z.string().uuid(),
+  name: z.string(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  notes: z.string().nullable(),
+  ...syncFields,
+});
+
+const pullEmployeeSchema = z.object({
+  id: z.string().uuid(),
+  business_id: z.string().uuid(),
+  name: z.string(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  color: z.string(),
+  ...syncFields,
+});
+
+const pullServiceSchema = z.object({
+  id: z.string().uuid(),
+  business_id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  duration_minutes: z.number().int().positive(),
+  price: z.number().int().nonnegative(),
+  ...syncFields,
+});
+
+const pullAppointmentSchema = z.object({
+  id: z.string().uuid(),
+  business_id: z.string().uuid(),
+  customer_id: z.string().uuid(),
+  employee_id: z.string().uuid().nullable(),
+  service_id: z.string().uuid().nullable(),
+  starts_at: z.string(),
+  ends_at: z.string(),
+  status: z.enum([
+    APPOINTMENT_STATUS.PENDING,
+    APPOINTMENT_STATUS.CONFIRMED,
+    APPOINTMENT_STATUS.COMPLETED,
+    APPOINTMENT_STATUS.CANCELLED,
+    APPOINTMENT_STATUS.NO_SHOW,
+  ]),
+  price: z.number().int().nonnegative(),
+  notes: z.string().nullable(),
+  ...syncFields,
+});
+
+const syncPullResponseSchema = z.object({
+  customers: z.array(pullCustomerSchema),
+  employees: z.array(pullEmployeeSchema),
+  services: z.array(pullServiceSchema),
+  appointments: z.array(pullAppointmentSchema),
+});
+
 export class SupabaseCloudSyncRepository implements CloudSyncRepository {
   async ensureBusiness(
     businessId: string,
@@ -30,20 +100,14 @@ export class SupabaseCloudSyncRepository implements CloudSyncRepository {
       .eq("id", businessId)
       .maybeSingle();
 
-    if (error !== null) {
-      throw error;
-    }
-    if (data !== null) {
-      return;
-    }
+    if (error !== null) throw error;
+    if (data !== null) return;
 
     const { error: createError } = await supabase.rpc("create_business", {
       business_id: businessId,
       business_name: businessName,
     });
-    if (createError !== null) {
-      throw createError;
-    }
+    if (createError !== null) throw createError;
   }
 
   async push(
@@ -62,14 +126,13 @@ export class SupabaseCloudSyncRepository implements CloudSyncRepository {
       appointments_payload: snapshot.appointments,
     });
 
-    if (error !== null) {
-      throw error;
-    }
+    if (error !== null) throw error;
     if (!isSyncPushResponse(data)) {
       throw new Error(
-        "Supabase devolvió una respuesta de sincronización inválida.",
+        "Supabase devolvio una respuesta de sincronizacion invalida.",
       );
     }
+
     const { error: fiscalError } = await getSupabaseClient().rpc(
       "sync_fiscal_configuration",
       {
@@ -79,9 +142,24 @@ export class SupabaseCloudSyncRepository implements CloudSyncRepository {
         fiscal_authorizations_payload: snapshot.fiscalAuthorizations,
       },
     );
-    if (fiscalError !== null) {
-      throw fiscalError;
-    }
+    if (fiscalError !== null) throw fiscalError;
+
     return data.synced_at;
+  }
+
+  async pull(
+    businessId: string,
+    deviceId: string,
+    sinceAt: string | null,
+  ): Promise<SyncPullResult> {
+    const { data, error } = await getSupabaseClient().rpc("sync_pull", {
+      target_business_id: businessId,
+      requesting_device_id: deviceId,
+      since_at: sinceAt,
+    });
+
+    if (error !== null) throw error;
+
+    return syncPullResponseSchema.parse(data);
   }
 }

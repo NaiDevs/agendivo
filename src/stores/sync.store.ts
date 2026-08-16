@@ -9,7 +9,10 @@ import {
   markLocalChanges,
   markSynchronizationCompleted,
 } from "@/infrastructure/database/device-metadata";
-import { SqliteSyncSource } from "@/infrastructure/sync/sqlite-sync.source";
+import {
+  SqliteSyncSource,
+  SqliteSyncDestination,
+} from "@/infrastructure/sync/sqlite-sync.source";
 import { SupabaseCloudSyncRepository } from "@/infrastructure/sync/supabase-cloud-sync.repository";
 import { isSupabaseConfigured } from "@/infrastructure/supabase/client";
 
@@ -29,6 +32,7 @@ interface SyncStore {
   isPendingStateLoaded: boolean;
   isPromptOpen: boolean;
   lastSyncedAt: string | null;
+  lastPulled: number;
   dismissPendingPrompt: () => void;
   loadPendingChanges: () => Promise<void>;
   markPendingChanges: () => Promise<void>;
@@ -50,6 +54,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
   isPendingStateLoaded: false,
   isPromptOpen: false,
   lastSyncedAt: null,
+  lastPulled: 0,
   status: isSupabaseConfigured() ? SYNC_STATUS.IDLE : SYNC_STATUS.UNAVAILABLE,
 
   dismissPendingPrompt: (): void => set({ isPromptOpen: false }),
@@ -93,11 +98,13 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
-      const syncedAt = await synchronizeBusiness(
+      const { syncedAt, pulled } = await synchronizeBusiness(
         business,
         deviceId,
         "Agendivo Desktop",
+        get().lastSyncedAt,
         new SqliteSyncSource(database),
+        new SqliteSyncDestination(database),
         new SupabaseCloudSyncRepository(),
       );
       await markSynchronizationCompleted(database, syncedAt);
@@ -105,6 +112,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
         hasPendingChanges: false,
         isPromptOpen: false,
         lastSyncedAt: syncedAt,
+        lastPulled: pulled,
         status: SYNC_STATUS.SYNCED,
       });
       return true;

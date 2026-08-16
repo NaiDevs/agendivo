@@ -128,3 +128,10 @@ export interface SyncSnapshot {
   fiscalProfiles: FiscalProfileSyncPayload[];
   services: ServiceSyncPayload[];
 }
+
+export interface SyncPullResult {
+  customers: CustomerSyncPayload[];
+  employees: EmployeeSyncPayload[];
+  services: ServiceSyncPayload[];
+  appointments: AppointmentSyncPayload[];
+}
