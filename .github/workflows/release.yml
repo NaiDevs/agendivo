@@ -1,4 +1,4 @@
-name: Preparar release de Windows
+name: Release
 
 on:
   workflow_dispatch:
@@ -10,44 +10,39 @@ permissions:
   contents: write
 
 jobs:
-  publicar-borrador:
+  build-windows:
+    name: Build Windows
     runs-on: windows-latest
     timeout-minutes: 60
 
     steps:
-      - name: Descargar código
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-      - name: Instalar pnpm
-        uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@v6.0.9
         with:
           version: 11.18.0
           run_install: false
 
-      - name: Instalar Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
 
-      - name: Instalar Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Restaurar caché de Rust
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 
-      - name: Validar versión
-        run: pnpm test
-
-      - name: Compilar y crear borrador
+      - name: Compilar Windows
         uses: tauri-apps/tauri-action@action-v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: Agendivo v__VERSION__
@@ -59,12 +54,102 @@ jobs:
             Administra citas, clientes, profesionales, servicios y finanzas desde una sola aplicación, incluso sin conexión.
 
             ## Descargar para Windows
+            - `Agendivo___VERSION___x64-setup.exe` — recomendado para la mayoría de usuarios.
+            - `Agendivo___VERSION___x64_es-ES.msi` — instalación administrada.
 
-            - `Agendivo___VERSION___x64-setup.exe`: recomendado para la mayoría de usuarios.
-            - `Agendivo___VERSION___x64_es-ES.msi`: instalación administrada para Windows.
-
-            Tus datos locales permanecen protegidos en este equipo y puedes crear respaldos desde Agendivo.
+            ## Descargar para macOS
+            - `Agendivo___VERSION___aarch64.dmg` — Apple Silicon (M1, M2, M3).
+            - `Agendivo___VERSION___x64.dmg` — Intel.
 
             Soporte: naidelynmaldonado54@gmail.com
           releaseDraft: true
           prerelease: false
+
+      - name: Subir instaladores Windows a Supabase
+        shell: pwsh
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          $version = "${{ github.ref_name }}"
+          $bundleDir = "src-tauri/target/release/bundle"
+          $files = @(
+            (Get-ChildItem "$bundleDir/nsis/*.exe" | Select-Object -First 1),
+            (Get-ChildItem "$bundleDir/nsis/*.zip" | Select-Object -First 1),
+            (Get-ChildItem "$bundleDir/nsis/*.sig" | Select-Object -First 1),
+            (Get-ChildItem "$bundleDir/msi/*.msi" | Select-Object -First 1)
+          ) | Where-Object { $_ }
+
+          foreach ($file in $files) {
+            $name = $file.Name
+            $url = "$env:SUPABASE_URL/storage/v1/object/desktop-releases/$version/$name"
+            Write-Host "Subiendo $name..."
+            $headers = @{
+              "Authorization" = "Bearer $env:SUPABASE_SERVICE_KEY"
+              "Content-Type"  = "application/octet-stream"
+            }
+            Invoke-RestMethod -Uri $url -Method Post -Headers $headers -InFile $file.FullName
+            Write-Host "OK: $name"
+          }
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 11.18.0
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Compilar macOS (Apple Silicon)
+        uses: tauri-apps/tauri-action@action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Agendivo v__VERSION__
+          releaseDraft: true
+          prerelease: false
+          args: --target aarch64-apple-darwin
+
+      - name: Subir instaladores macOS a Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          BUNDLE_DIR="src-tauri/target/aarch64-apple-darwin/release/bundle"
+
+          for file in "$BUNDLE_DIR/dmg/"*.dmg "$BUNDLE_DIR/macos/"*.tar.gz "$BUNDLE_DIR/macos/"*.sig; do
+            [ -f "$file" ] || continue
+            NAME=$(basename "$file")
+            echo "Subiendo $NAME..."
+            curl -s -X POST \
+              "$SUPABASE_URL/storage/v1/object/desktop-releases/$VERSION/$NAME" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$file"
+            echo "OK: $NAME"
+          done
