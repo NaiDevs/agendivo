@@ -2,7 +2,11 @@ import { CreditCard, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
-import { SUBSCRIPTION_STATUS } from "@/domain/entities/subscription";
+import { FEATURE_FLAGS } from "@/config/feature-flags";
+import {
+  hasPaidSubscription,
+  SUBSCRIPTION_STATUS,
+} from "@/domain/entities/subscription";
 import { useAppStore } from "@/stores/app.store";
 import { useSubscriptionStore } from "@/stores/subscription.store";
 
@@ -21,7 +25,7 @@ export function SubscriptionCard() {
     if (business === null) return;
 
     const refresh = (): void => {
-      void load(business.id);
+      void load(business.id, business.name);
     };
 
     refresh();
@@ -31,9 +35,7 @@ export function SubscriptionCard() {
 
   if (business === null) return null;
 
-  const active =
-    subscription?.status === SUBSCRIPTION_STATUS.ACTIVE ||
-    subscription?.status === SUBSCRIPTION_STATUS.TRIALING;
+  const active = hasPaidSubscription(subscription);
 
   return (
     <div className="surface-card p-5 sm:p-6">
@@ -67,11 +69,11 @@ export function SubscriptionCard() {
         </div>
       </div>
 
-      {!active && (
+      {!active && FEATURE_FLAGS.stripeSubscriptionButtonEnabled && (
         <Button
           className="mt-4 w-full"
           disabled={isOpeningCheckout}
-          onClick={() => void openCheckout(business.id)}
+          onClick={() => void openCheckout(business.id, business.name)}
           type="button"
         >
           {isOpeningCheckout ? "Abriendo Stripe…" : "Suscribirme con Stripe"}

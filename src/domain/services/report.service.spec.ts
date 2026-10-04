@@ -5,7 +5,11 @@ import {
   type Appointment,
 } from "@/domain/entities/appointment";
 import { EXPENSE_CATEGORY, type Expense } from "@/domain/entities/expense";
-import { PAYMENT_METHOD, type Payment } from "@/domain/entities/payment";
+import {
+  PAYMENT_DOCUMENT_TYPE,
+  PAYMENT_METHOD,
+  type Payment,
+} from "@/domain/entities/payment";
 import { dailyReport, monthlyReport } from "@/domain/services/report.service";
 
 const TZ = "America/Guatemala"; // UTC-6
@@ -31,6 +35,9 @@ function payment(
     deletedAt: null,
     version: 1,
     deviceId: D,
+    documentType: PAYMENT_DOCUMENT_TYPE.RECEIPT,
+    fiscalInvoice: null,
+    serviceItems: [],
   };
 }
 
@@ -66,6 +73,7 @@ function appointment(
     customerId: "c",
     employeeId: null,
     serviceId: null,
+    serviceItems: [],
     startsAt,
     endsAt: startsAt,
     status,

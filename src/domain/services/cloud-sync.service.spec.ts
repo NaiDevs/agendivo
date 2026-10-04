@@ -42,6 +42,7 @@ const EMPTY_SNAPSHOT: SyncSnapshot = {
     device_id: "dev-001",
   },
   customers: [],
+  customerCustomFields: [],
   employees: [],
   services: [],
   appointments: [],
@@ -59,6 +60,7 @@ const PULL_RESULT: SyncPullResult = {
       phone: null,
       email: null,
       notes: null,
+      custom_field_values: {},
       created_at: "2026-08-10T00:00:00Z",
       updated_at: "2026-08-10T00:00:00Z",
       deleted_at: null,
@@ -66,6 +68,7 @@ const PULL_RESULT: SyncPullResult = {
       device_id: "dev-002",
     },
   ],
+  customerCustomFields: [],
   employees: [],
   services: [],
   appointments: [],
@@ -149,6 +152,7 @@ describe("synchronizeBusiness", () => {
   it("no llama writeSnapshot si pull no devuelve registros", async () => {
     const emptyPull: SyncPullResult = {
       customers: [],
+      customerCustomFields: [],
       employees: [],
       services: [],
       appointments: [],

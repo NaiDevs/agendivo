@@ -20,6 +20,26 @@ export interface CustomerSyncPayload {
   phone: string | null;
   email: string | null;
   notes: string | null;
+  custom_field_values: Record<
+    string,
+    boolean | number | string | string[] | null
+  >;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  version: number;
+  device_id: string;
+}
+
+export interface CustomerCustomFieldSyncPayload {
+  id: string;
+  business_id: string;
+  name: string;
+  type: string;
+  is_required: boolean;
+  is_multiple: boolean;
+  options: string[];
+  sort_order: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -61,6 +81,12 @@ export interface AppointmentSyncPayload {
   customer_id: string;
   employee_id: string | null;
   service_id: string | null;
+  service_items: Array<{
+    serviceId: string;
+    name: string;
+    durationMinutes: number;
+    price: number;
+  }>;
   starts_at: string;
   ends_at: string;
   status: string;
@@ -122,6 +148,7 @@ export interface SyncSnapshot {
   appointments: AppointmentSyncPayload[];
   business: BusinessSyncPayload;
   customers: CustomerSyncPayload[];
+  customerCustomFields: CustomerCustomFieldSyncPayload[];
   emissionPoints: EmissionPointSyncPayload[];
   employees: EmployeeSyncPayload[];
   fiscalAuthorizations: FiscalAuthorizationSyncPayload[];
@@ -131,6 +158,7 @@ export interface SyncSnapshot {
 
 export interface SyncPullResult {
   customers: CustomerSyncPayload[];
+  customerCustomFields: CustomerCustomFieldSyncPayload[];
   employees: EmployeeSyncPayload[];
   services: ServiceSyncPayload[];
   appointments: AppointmentSyncPayload[];

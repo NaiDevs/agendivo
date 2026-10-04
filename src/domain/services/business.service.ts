@@ -181,6 +181,29 @@ export async function updateFiscalCorrelative(
   return configuration;
 }
 
+export async function updateFiscalDocumentMode(
+  current: FiscalConfiguration | null,
+  invoicesEnabled: boolean,
+  deviceId: string,
+  repository: BusinessRepository,
+): Promise<FiscalConfiguration> {
+  if (current === null) {
+    throw new Error("No encontramos el perfil fiscal del negocio.");
+  }
+  const configuration: FiscalConfiguration = {
+    ...current,
+    profile: {
+      ...current.profile,
+      invoicesEnabled,
+      updatedAt: new Date().toISOString(),
+      version: current.profile.version + 1,
+      deviceId,
+    },
+  };
+  await repository.saveFiscalConfiguration(configuration);
+  return configuration;
+}
+
 export async function createBusiness(
   values: BusinessFormValues,
   deviceId: string,

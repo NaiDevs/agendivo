@@ -1,4 +1,5 @@
 import type { SyncableEntity } from "@/domain/entities/syncable-entity";
+import type { ServiceLineItem } from "@/domain/entities/service-line-item";
 
 export const APPOINTMENT_STATUS = {
   PENDING: "pending",
@@ -16,6 +17,7 @@ export interface Appointment extends SyncableEntity {
   customerId: string;
   employeeId: string | null;
   serviceId: string | null;
+  serviceItems: ServiceLineItem[];
   startsAt: string;
   endsAt: string;
   status: AppointmentStatus;

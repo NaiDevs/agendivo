@@ -17,8 +17,10 @@ export function PendingSyncDialog() {
   const status = useSyncStore((state) => state.status);
 
   useEffect(() => {
-    void loadPendingChanges();
-  }, [loadPendingChanges]);
+    if (business !== null) {
+      void loadPendingChanges(business.id);
+    }
+  }, [business, loadPendingChanges]);
 
   useEffect(() => {
     window.addEventListener("online", openPendingPrompt);

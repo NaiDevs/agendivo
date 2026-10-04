@@ -1,0 +1,63 @@
+name: Validar
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  calidad:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v7
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 11.18.0
+          run_install: false
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restaurar caché de Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Verificar formato
+        run: pnpm format:check
+
+      - name: Ejecutar lint
+        run: pnpm lint
+
+      - name: Verificar tipos
+        run: pnpm typecheck
+
+      - name: Ejecutar pruebas
+        run: pnpm test
+
+      - name: Auditar dependencias de producción
+        run: pnpm audit --prod
+
+      - name: Compilar frontend
+        run: pnpm build
+
+      - name: Verificar aplicación nativa
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml

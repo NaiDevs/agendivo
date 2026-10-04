@@ -1,12 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  BriefcaseBusiness,
   CalendarDays,
   CircleDollarSign,
   LayoutDashboard,
-  Scissors,
   Settings,
-  Sparkles,
   Users,
   UsersRound,
   Wifi,
@@ -15,6 +14,7 @@ import {
 import type { ReactNode } from "react";
 
 import { APP_SECTION, type AppSection } from "@/app/navigation";
+import { AgendivoBrand } from "@/components/agendivo-brand";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app.store";
@@ -35,7 +35,7 @@ const navigation: NavigationItem[] = [
   },
   { id: APP_SECTION.CUSTOMERS, label: "Clientes", icon: Users },
   { id: APP_SECTION.EMPLOYEES, label: "Equipo", icon: UsersRound },
-  { id: APP_SECTION.SERVICES, label: "Servicios", icon: Scissors },
+  { id: APP_SECTION.SERVICES, label: "Servicios", icon: BriefcaseBusiness },
   {
     id: APP_SECTION.PAYMENTS,
     label: "Caja",
@@ -66,15 +66,14 @@ export function AppShell({
   return (
     <div className="bg-background h-screen overflow-hidden lg:grid lg:grid-cols-[248px_1fr]">
       <aside className="bg-sidebar text-sidebar-foreground hidden h-screen flex-col overflow-y-auto border-r border-white/8 lg:flex">
-        <div className="flex h-20 items-center gap-3 px-6">
-          <div className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-xl shadow-lg shadow-black/20">
-            <Sparkles className="size-5" />
-          </div>
+        <div className="flex h-20 items-center px-6">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-white/45 uppercase">
-              Agendivo
-            </p>
-            <p className="truncate font-semibold text-white">
+            <AgendivoBrand
+              alt="Agendivo"
+              className="h-7 w-auto max-w-36"
+              variant="logo-horizontal-negative"
+            />
+            <p className="mt-1.5 truncate text-xs font-medium text-white/55">
               {business?.name}
             </p>
           </div>
@@ -123,8 +122,8 @@ export function AppShell({
       <div className="h-screen min-w-0 overflow-hidden">
         <header className="bg-background/90 sticky top-0 z-20 flex h-16 items-center justify-between border-b px-4 backdrop-blur md:px-7 lg:px-9">
           <div className="flex items-center gap-3 lg:hidden">
-            <div className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-xl">
-              <Sparkles className="size-4" />
+            <div className="flex size-9 items-center justify-center rounded-xl bg-white shadow-sm">
+              <AgendivoBrand className="size-7" variant="isotipo-color" />
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Agendivo</p>

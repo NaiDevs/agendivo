@@ -21,6 +21,7 @@ import {
 } from "@/schemas/customer.schema";
 import { useAppStore } from "@/stores/app.store";
 import type { Customer } from "@/domain/entities/customer";
+import { CustomerCustomFieldControl } from "@/features/customers/components/customer-custom-field-control";
 
 interface CustomerFormProps {
   customer: Customer | null;
@@ -35,17 +36,25 @@ export function CustomerForm({
 }: CustomerFormProps) {
   const addCustomer = useAppStore((state) => state.addCustomer);
   const editCustomer = useAppStore((state) => state.editCustomer);
+  const customFields = useAppStore((state) => state.customerCustomFields);
   const isSaving = useAppStore((state) => state.isSaving);
   const error = useAppStore((state) => state.error);
   const clearError = useAppStore((state) => state.clearError);
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors },
   } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
-    defaultValues: { name: "", phone: "", email: "", notes: "" },
+    defaultValues: {
+      name: "",
+      phone: "",
+      email: "",
+      notes: "",
+      customFieldValues: {},
+    },
   });
 
   useEffect(() => {
@@ -54,8 +63,9 @@ export function CustomerForm({
       phone: customer?.phone ?? "",
       email: customer?.email ?? "",
       notes: customer?.notes ?? "",
+      customFieldValues: customer?.customFieldValues ?? {},
     });
-  }, [customer, reset]);
+  }, [customer, customFields, reset]);
 
   const onSubmit = handleSubmit(async (values): Promise<void> => {
     clearError();
@@ -127,6 +137,25 @@ export function CustomerForm({
             />
             <FieldError message={errors.notes?.message} />
           </div>
+
+          {customFields.length > 0 && (
+            <div className="mt-1 grid gap-4 border-t pt-4">
+              <div>
+                <p className="font-semibold">Información adicional</p>
+                <p className="text-muted-foreground text-xs">
+                  Campos configurados para este negocio.
+                </p>
+              </div>
+              {customFields.map((field) => (
+                <CustomerCustomFieldControl
+                  control={control}
+                  errors={errors}
+                  field={field}
+                  key={field.id}
+                />
+              ))}
+            </div>
+          )}
 
           {customer !== null && (
             <Button onClick={onCancelEdit} type="button" variant="outline">

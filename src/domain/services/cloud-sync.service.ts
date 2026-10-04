@@ -9,6 +9,7 @@ import type {
 function countPulled(data: SyncPullResult): number {
   return (
     data.customers.length +
+    data.customerCustomFields.length +
     data.employees.length +
     data.services.length +
     data.appointments.length

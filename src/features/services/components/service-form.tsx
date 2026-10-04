@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, Scissors } from "lucide-react";
+import { BriefcaseBusiness, Pencil } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 
@@ -68,7 +68,7 @@ export function ServiceForm({
       <CardHeader>
         <div className="bg-primary/10 text-primary mb-2 flex size-10 items-center justify-center rounded-xl">
           {service === null ? (
-            <Scissors className="size-5" />
+            <BriefcaseBusiness className="size-5" />
           ) : (
             <Pencil className="size-5" />
           )}
@@ -92,7 +92,7 @@ export function ServiceForm({
             <Label htmlFor="service-name">Nombre</Label>
             <Input
               id="service-name"
-              placeholder="Ej. Corte clásico"
+              placeholder="Ej. Consulta inicial"
               {...register("name")}
             />
             <FieldError message={errors.name?.message} />

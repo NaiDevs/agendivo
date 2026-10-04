@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { Business } from "@/domain/entities/business";
 import { EXPENSE_CATEGORY, type Expense } from "@/domain/entities/expense";
-import { PAYMENT_METHOD, type Payment } from "@/domain/entities/payment";
+import {
+  PAYMENT_DOCUMENT_TYPE,
+  PAYMENT_METHOD,
+  type Payment,
+} from "@/domain/entities/payment";
 import type {
   DatabaseClient,
   DatabaseExecutionResult,
@@ -172,6 +176,9 @@ const payment: Payment = {
   method: PAYMENT_METHOD.CASH,
   paidAt: "2026-08-04T10:30:00.000Z",
   notes: null,
+  documentType: PAYMENT_DOCUMENT_TYPE.RECEIPT,
+  fiscalInvoice: null,
+  serviceItems: [],
   createdAt: "2026-08-04T10:30:00.000Z",
   updatedAt: "2026-08-04T10:30:00.000Z",
   deletedAt: null,
@@ -218,6 +225,9 @@ describe("SqlitePaymentRepository", () => {
       payment.method,
       payment.paidAt,
       payment.notes,
+      payment.documentType,
+      payment.fiscalInvoice,
+      JSON.stringify(payment.serviceItems),
       payment.createdAt,
       payment.updatedAt,
       payment.deletedAt,
@@ -238,8 +248,39 @@ describe("SqlitePaymentRepository", () => {
 
     const bindValues = database.lastBindValues ?? [];
     expect(database.lastQuery).toContain("UPDATE payments SET");
-    expect(bindValues[9]).toBe(voided.deletedAt);
+    expect(bindValues[12]).toBe(voided.deletedAt);
     expect(bindValues[bindValues.length - 1]).toBe(voided.id);
+  });
+
+  it("convierte un recibo en factura dentro del mismo negocio", async () => {
+    const database = new FakeDatabase();
+    const repository = new SqlitePaymentRepository(database);
+    const invoice: Payment = {
+      ...payment,
+      documentType: PAYMENT_DOCUMENT_TYPE.FISCAL_INVOICE,
+      fiscalInvoice: {
+        authorizationId: "80000000-0000-4000-8000-000000000001",
+        cai: "ABC123-DEF456-GHI789-JKL012-MNO345-PQ",
+        correlative: 7,
+        emissionPointCode: "002",
+        establishmentCode: "001",
+        issuedDate: "2026-08-16",
+        legalName: "Nai Servicios, S. de R.L.",
+        number: "001-002-01-00000007",
+        rangeEnd: 100,
+        rangeStart: 1,
+        taxId: "08011999123456",
+        validUntil: "2027-08-09",
+      },
+    };
+
+    await repository.issueFiscalInvoice(invoice);
+
+    expect(database.lastQuery).toContain("document_type = 'receipt'");
+    expect(database.lastQuery).toContain("business_id = ?");
+    const bindValues = database.lastBindValues ?? [];
+    expect(bindValues[bindValues.length - 2]).toBe(invoice.id);
+    expect(bindValues[bindValues.length - 1]).toBe(invoice.businessId);
   });
 });
 

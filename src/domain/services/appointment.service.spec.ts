@@ -42,7 +42,7 @@ const service: Service = {
 const values = {
   customerId: "11111111-1111-4111-8111-111111111111",
   employeeId: "22222222-2222-4222-8222-222222222222",
-  serviceId: service.id,
+  serviceIds: [service.id],
   startsAt: "2026-08-04T10:30",
   status: APPOINTMENT_STATUS.PENDING,
   durationMinutes: 45,
@@ -58,6 +58,7 @@ describe("createAppointment", () => {
       service.businessId,
       service.deviceId,
       repository,
+      [service],
     );
 
     expect(
@@ -79,22 +80,24 @@ describe("createAppointment", () => {
         service.businessId,
         service.deviceId,
         repository,
+        [service],
       ),
     ).rejects.toBeInstanceOf(AppointmentConflictError);
   });
 
-  it("permite una cita sin profesional ni servicio", async () => {
+  it("permite una cita sin profesional", async () => {
     const repository = new FakeAppointmentRepository();
     repository.overlap = true;
 
     const appointment = await createAppointment(
-      { ...values, employeeId: "", serviceId: "" },
+      { ...values, employeeId: "" },
       service.businessId,
       service.deviceId,
       repository,
+      [service],
     );
 
     expect(appointment.employeeId).toBeNull();
-    expect(appointment.serviceId).toBeNull();
+    expect(appointment.serviceItems).toHaveLength(1);
   });
 });

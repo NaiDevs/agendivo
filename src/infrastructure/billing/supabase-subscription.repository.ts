@@ -31,8 +31,43 @@ const checkoutResponseSchema = z.object({
 });
 
 export class SupabaseSubscriptionRepository implements SubscriptionRepository {
+  async ensureBusiness(
+    businessId: string,
+    businessName: string,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("businesses")
+      .select("id")
+      .eq("id", businessId)
+      .maybeSingle();
+    if (error !== null) {
+      throw error;
+    }
+    if (data !== null) {
+      return;
+    }
+
+    const { error: createError } = await supabase.rpc("create_business", {
+      business_id: businessId,
+      business_name: businessName,
+    });
+    if (createError !== null) {
+      throw createError;
+    }
+  }
+
   async findByBusiness(businessId: string): Promise<Subscription | null> {
-    const { data, error } = await getSupabaseClient()
+    const supabase = getSupabaseClient();
+    const { error: syncError } = await supabase.functions.invoke(
+      "sync-subscription",
+      { body: { businessId } },
+    );
+    if (syncError !== null) {
+      throw syncError;
+    }
+
+    const { data, error } = await supabase
       .from("subscriptions")
       .select(
         "business_id, stripe_price_id, status, current_period_end, cancel_at_period_end",

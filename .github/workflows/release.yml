@@ -1,0 +1,70 @@
+name: Preparar release de Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  publicar-borrador:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v7
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 11.18.0
+          run_install: false
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restaurar caché de Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Validar versión
+        run: pnpm test
+
+      - name: Compilar y crear borrador
+        uses: tauri-apps/tauri-action@action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Agendivo v__VERSION__
+          releaseBody: |
+            ![Agendivo](https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/docs/brand/agendivo-release-logo.png)
+
+            **Tu negocio organizado, siempre disponible.**
+
+            Administra citas, clientes, profesionales, servicios y finanzas desde una sola aplicación, incluso sin conexión.
+
+            ## Descargar para Windows
+
+            - `Agendivo___VERSION___x64-setup.exe`: recomendado para la mayoría de usuarios.
+            - `Agendivo___VERSION___x64_es-ES.msi`: instalación administrada para Windows.
+
+            Tus datos locales permanecen protegidos en este equipo y puedes crear respaldos desde Agendivo.
+
+            Soporte: naidelynmaldonado54@gmail.com
+          releaseDraft: true
+          prerelease: false

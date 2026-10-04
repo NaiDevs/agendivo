@@ -1,8 +1,15 @@
 import { z } from "zod";
 
 import { APPOINTMENT_STATUS } from "@/domain/entities/appointment";
-import type { SyncSnapshot, SyncPullResult } from "@/domain/entities/sync-snapshot";
-import type { LocalSyncSource, LocalSyncDestination } from "@/domain/repositories/cloud-sync.repository";
+import { CUSTOMER_CUSTOM_FIELD_TYPE } from "@/domain/entities/customer-custom-field";
+import type {
+  SyncSnapshot,
+  SyncPullResult,
+} from "@/domain/entities/sync-snapshot";
+import type {
+  LocalSyncSource,
+  LocalSyncDestination,
+} from "@/domain/repositories/cloud-sync.repository";
 import type { DatabaseClient } from "@/infrastructure/database/database-client";
 
 const syncFields = {
@@ -31,8 +38,52 @@ const customerSchema = z.object({
   phone: z.string().nullable(),
   email: z.string().nullable(),
   notes: z.string().nullable(),
+  custom_field_values: z
+    .string()
+    .transform((value) => JSON.parse(value) as unknown)
+    .pipe(
+      z.record(
+        z.string().uuid(),
+        z.union([
+          z.boolean(),
+          z.number().finite(),
+          z.string(),
+          z.array(z.string()),
+          z.null(),
+        ]),
+      ),
+    ),
   ...syncFields,
 });
+
+const customerCustomFieldSchema = z
+  .object({
+    id: z.string().uuid(),
+    business_id: z.string().uuid(),
+    name: z.string(),
+    type: z.enum([
+      CUSTOMER_CUSTOM_FIELD_TYPE.TEXT,
+      CUSTOMER_CUSTOM_FIELD_TYPE.TELEPHONE,
+      CUSTOMER_CUSTOM_FIELD_TYPE.NUMBER,
+      CUSTOMER_CUSTOM_FIELD_TYPE.BOOLEAN,
+      CUSTOMER_CUSTOM_FIELD_TYPE.DATETIME,
+      CUSTOMER_CUSTOM_FIELD_TYPE.EMAIL,
+      CUSTOMER_CUSTOM_FIELD_TYPE.SELECT,
+    ]),
+    is_required: z.union([z.literal(0), z.literal(1)]),
+    is_multiple: z.union([z.literal(0), z.literal(1)]),
+    options: z
+      .string()
+      .transform((value) => JSON.parse(value) as unknown)
+      .pipe(z.array(z.string())),
+    sort_order: z.number().int().nonnegative(),
+    ...syncFields,
+  })
+  .transform((field) => ({
+    ...field,
+    is_required: field.is_required === 1,
+    is_multiple: field.is_multiple === 1,
+  }));
 
 const employeeSchema = z.object({
   id: z.string().uuid(),
@@ -60,6 +111,19 @@ const appointmentSchema = z.object({
   customer_id: z.string().uuid(),
   employee_id: z.string().uuid().nullable(),
   service_id: z.string().uuid().nullable(),
+  service_items: z
+    .string()
+    .transform((value) => JSON.parse(value) as unknown)
+    .pipe(
+      z.array(
+        z.object({
+          serviceId: z.string().uuid(),
+          name: z.string(),
+          durationMinutes: z.number().int().positive(),
+          price: z.number().int().nonnegative(),
+        }),
+      ),
+    ),
   starts_at: z.string(),
   ends_at: z.string(),
   status: z.enum([
@@ -114,6 +178,7 @@ export class SqliteSyncSource implements LocalSyncSource {
     const [
       businessRows,
       customers,
+      customerCustomFields,
       employees,
       services,
       appointments,
@@ -128,9 +193,15 @@ export class SqliteSyncSource implements LocalSyncSource {
         [businessId],
       ),
       this.database.select<unknown[]>(
-        `SELECT id, business_id, name, phone, email, notes,
+        `SELECT id, business_id, name, phone, email, notes, custom_field_values,
                   created_at, updated_at, deleted_at, version, device_id
            FROM customers WHERE business_id = ?`,
+        [businessId],
+      ),
+      this.database.select<unknown[]>(
+        `SELECT id, business_id, name, type, is_required, is_multiple, options,
+                sort_order, created_at, updated_at, deleted_at, version, device_id
+         FROM customer_custom_fields WHERE business_id = ?`,
         [businessId],
       ),
       this.database.select<unknown[]>(
@@ -146,7 +217,7 @@ export class SqliteSyncSource implements LocalSyncSource {
         [businessId],
       ),
       this.database.select<unknown[]>(
-        `SELECT id, business_id, customer_id, employee_id, service_id,
+        `SELECT id, business_id, customer_id, employee_id, service_id, service_items,
                   starts_at, ends_at, status, price, notes,
                   created_at, updated_at, deleted_at, version, device_id
            FROM appointments WHERE business_id = ?`,
@@ -183,6 +254,9 @@ export class SqliteSyncSource implements LocalSyncSource {
     return {
       business: businessSchema.parse(business),
       customers: z.array(customerSchema).parse(customers),
+      customerCustomFields: z
+        .array(customerCustomFieldSchema)
+        .parse(customerCustomFields),
       emissionPoints: z.array(emissionPointSchema).parse(emissionPoints),
       employees: z.array(employeeSchema).parse(employees),
       fiscalAuthorizations: z
@@ -199,15 +273,52 @@ export class SqliteSyncDestination implements LocalSyncDestination {
   constructor(private readonly database: DatabaseClient) {}
 
   async writeSnapshot(businessId: string, data: SyncPullResult): Promise<void> {
+    for (const field of data.customerCustomFields) {
+      if (field.business_id !== businessId) continue;
+      await this.database.execute(
+        `INSERT INTO customer_custom_fields (
+           id, business_id, name, type, is_required, is_multiple, options,
+           sort_order, created_at, updated_at, deleted_at, version, device_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name, type = excluded.type,
+           is_required = excluded.is_required,
+           is_multiple = excluded.is_multiple, options = excluded.options,
+           sort_order = excluded.sort_order, updated_at = excluded.updated_at,
+           deleted_at = excluded.deleted_at, version = excluded.version,
+           device_id = excluded.device_id
+         WHERE excluded.business_id = customer_custom_fields.business_id
+           AND (excluded.version > customer_custom_fields.version
+             OR (excluded.version = customer_custom_fields.version
+                 AND excluded.updated_at > customer_custom_fields.updated_at))`,
+        [
+          field.id,
+          field.business_id,
+          field.name,
+          field.type,
+          Number(field.is_required),
+          Number(field.is_multiple),
+          JSON.stringify(field.options),
+          field.sort_order,
+          field.created_at,
+          field.updated_at,
+          field.deleted_at,
+          field.version,
+          field.device_id,
+        ],
+      );
+    }
+
     for (const customer of data.customers) {
       if (customer.business_id !== businessId) continue;
       await this.database.execute(
         `INSERT INTO customers (id, business_id, name, phone, email, notes,
-           created_at, updated_at, deleted_at, version, device_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           custom_field_values, created_at, updated_at, deleted_at, version, device_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name, phone = excluded.phone,
            email = excluded.email, notes = excluded.notes,
+           custom_field_values = excluded.custom_field_values,
            updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
            version = excluded.version, device_id = excluded.device_id
          WHERE excluded.business_id = customers.business_id
@@ -215,10 +326,18 @@ export class SqliteSyncDestination implements LocalSyncDestination {
              OR (excluded.version = customers.version
                  AND excluded.updated_at > customers.updated_at))`,
         [
-          customer.id, customer.business_id, customer.name,
-          customer.phone, customer.email, customer.notes,
-          customer.created_at, customer.updated_at, customer.deleted_at,
-          customer.version, customer.device_id,
+          customer.id,
+          customer.business_id,
+          customer.name,
+          customer.phone,
+          customer.email,
+          customer.notes,
+          JSON.stringify(customer.custom_field_values),
+          customer.created_at,
+          customer.updated_at,
+          customer.deleted_at,
+          customer.version,
+          customer.device_id,
         ],
       );
     }
@@ -239,10 +358,17 @@ export class SqliteSyncDestination implements LocalSyncDestination {
              OR (excluded.version = employees.version
                  AND excluded.updated_at > employees.updated_at))`,
         [
-          employee.id, employee.business_id, employee.name,
-          employee.phone, employee.email, employee.color,
-          employee.created_at, employee.updated_at, employee.deleted_at,
-          employee.version, employee.device_id,
+          employee.id,
+          employee.business_id,
+          employee.name,
+          employee.phone,
+          employee.email,
+          employee.color,
+          employee.created_at,
+          employee.updated_at,
+          employee.deleted_at,
+          employee.version,
+          employee.device_id,
         ],
       );
     }
@@ -263,10 +389,17 @@ export class SqliteSyncDestination implements LocalSyncDestination {
              OR (excluded.version = services.version
                  AND excluded.updated_at > services.updated_at))`,
         [
-          service.id, service.business_id, service.name,
-          service.description, service.duration_minutes, service.price,
-          service.created_at, service.updated_at, service.deleted_at,
-          service.version, service.device_id,
+          service.id,
+          service.business_id,
+          service.name,
+          service.description,
+          service.duration_minutes,
+          service.price,
+          service.created_at,
+          service.updated_at,
+          service.deleted_at,
+          service.version,
+          service.device_id,
         ],
       );
     }
@@ -274,13 +407,14 @@ export class SqliteSyncDestination implements LocalSyncDestination {
     for (const appointment of data.appointments) {
       if (appointment.business_id !== businessId) continue;
       await this.database.execute(
-        `INSERT INTO appointments (id, business_id, customer_id, employee_id, service_id,
+        `INSERT INTO appointments (id, business_id, customer_id, employee_id, service_id, service_items,
            starts_at, ends_at, status, price, notes,
            created_at, updated_at, deleted_at, version, device_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            customer_id = excluded.customer_id, employee_id = excluded.employee_id,
-           service_id = excluded.service_id, starts_at = excluded.starts_at,
+           service_id = excluded.service_id, service_items = excluded.service_items,
+           starts_at = excluded.starts_at,
            ends_at = excluded.ends_at, status = excluded.status,
            price = excluded.price, notes = excluded.notes,
            updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
@@ -290,12 +424,22 @@ export class SqliteSyncDestination implements LocalSyncDestination {
              OR (excluded.version = appointments.version
                  AND excluded.updated_at > appointments.updated_at))`,
         [
-          appointment.id, appointment.business_id, appointment.customer_id,
-          appointment.employee_id, appointment.service_id,
-          appointment.starts_at, appointment.ends_at, appointment.status,
-          appointment.price, appointment.notes,
-          appointment.created_at, appointment.updated_at, appointment.deleted_at,
-          appointment.version, appointment.device_id,
+          appointment.id,
+          appointment.business_id,
+          appointment.customer_id,
+          appointment.employee_id,
+          appointment.service_id,
+          JSON.stringify(appointment.service_items),
+          appointment.starts_at,
+          appointment.ends_at,
+          appointment.status,
+          appointment.price,
+          appointment.notes,
+          appointment.created_at,
+          appointment.updated_at,
+          appointment.deleted_at,
+          appointment.version,
+          appointment.device_id,
         ],
       );
     }

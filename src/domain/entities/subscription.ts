@@ -20,3 +20,19 @@ export interface Subscription {
   status: SubscriptionStatus;
   stripePriceId: string;
 }
+
+export function hasPaidSubscription(
+  subscription: Subscription | null,
+): boolean {
+  if (
+    subscription?.status !== SUBSCRIPTION_STATUS.ACTIVE ||
+    subscription.cancelAtPeriodEnd
+  ) {
+    return false;
+  }
+
+  return (
+    subscription.currentPeriodEnd === null ||
+    Date.parse(subscription.currentPeriodEnd) > Date.now()
+  );
+}

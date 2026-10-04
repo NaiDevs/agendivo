@@ -9,8 +9,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PAYMENT_METHOD } from "@/domain/entities/payment";
+import { PAYMENT_METHOD, type Payment } from "@/domain/entities/payment";
 import { paymentMethodLabel } from "@/features/payments/payment-presenter";
+import { ServiceMultiSelect } from "@/features/services/components/service-multi-select";
 import { formatMoney } from "@/lib/format-money";
 import {
   paymentFormSchema,
@@ -22,6 +23,7 @@ interface PaymentFormProps {
   lockedAppointmentId?: string;
   lockedCustomerId?: string;
   onSaved?: () => void;
+  onPaymentSaved?: (payment: Payment) => void;
   onClose?: () => void;
 }
 
@@ -31,11 +33,13 @@ export function PaymentForm({
   lockedAppointmentId,
   lockedCustomerId,
   onSaved,
+  onPaymentSaved,
   onClose,
 }: PaymentFormProps) {
   const business = useAppStore((state) => state.business);
   const customers = useAppStore((state) => state.customers);
   const appointments = useAppStore((state) => state.appointments);
+  const services = useAppStore((state) => state.services);
   const addPayment = useAppStore((state) => state.addPayment);
   const appointmentBalance = useAppStore((state) => state.appointmentBalance);
   const isSaving = useAppStore((state) => state.isSaving);
@@ -59,9 +63,9 @@ export function PaymentForm({
     ),
   });
 
-  const [selectedCustomer, selectedAppointment] = useWatch({
+  const [selectedCustomer, selectedAppointment, selectedServiceIds] = useWatch({
     control,
-    name: ["customerId", "appointmentId"],
+    name: ["customerId", "appointmentId", "serviceIds"],
   });
 
   const customerAppointments = appointments.filter(
@@ -77,13 +81,25 @@ export function PaymentForm({
         setValue("amount", appointmentBalance(value) / 100, {
           shouldValidate: true,
         });
+      } else {
+        setValue("serviceIds", [], { shouldValidate: true });
+        setValue("amount", 0, { shouldValidate: true });
       }
     },
   });
 
+  const onServicesChange = (serviceIds: string[]): void => {
+    const amount = services
+      .filter((service) => serviceIds.includes(service.id))
+      .reduce((total, service) => total + service.price, 0);
+    setValue("serviceIds", serviceIds, { shouldValidate: true });
+    setValue("amount", amount / 100, { shouldValidate: true });
+  };
+
   const onSubmit = handleSubmit(async (values): Promise<void> => {
     clearError();
-    if (await addPayment(values)) {
+    const payment = await addPayment(values);
+    if (payment !== null) {
       reset(
         getDefaultValues(
           lockedAppointmentId,
@@ -91,6 +107,7 @@ export function PaymentForm({
           appointmentBalance,
         ),
       );
+      onPaymentSaved?.(payment);
       onSaved?.();
     }
   });
@@ -161,6 +178,15 @@ export function PaymentForm({
               {formatMoney(balance, currency)}
             </span>
           </p>
+        )}
+        {selectedAppointment === "" && (
+          <ServiceMultiSelect
+            currency={currency}
+            error={errors.serviceIds?.message}
+            onChange={onServicesChange}
+            selectedIds={selectedServiceIds}
+            services={services}
+          />
         )}
         <div className="grid grid-cols-2 gap-3">
           <div className="field-group">
@@ -272,6 +298,7 @@ function getDefaultValues(
   return {
     customerId: lockedCustomerId ?? "",
     appointmentId: lockedAppointmentId ?? "",
+    serviceIds: [],
     amount:
       lockedAppointmentId === undefined
         ? 0

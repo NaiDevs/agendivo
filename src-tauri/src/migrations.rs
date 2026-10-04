@@ -58,5 +58,47 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0009_employee_accounts.up.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "scope_sync_metadata_by_business",
+            sql: include_str!("../migrations/0010_scope_sync_metadata_by_business.up.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 11,
+            description: "customer_custom_fields",
+            sql: include_str!("../migrations/0011_customer_custom_fields.up.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 12,
+            description: "payment_fiscal_documents",
+            sql: include_str!("../migrations/0012_payment_fiscal_documents.up.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 13,
+            description: "validate_fiscal_emission_point",
+            sql: include_str!("../migrations/0013_validate_fiscal_emission_point.up.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 14,
+            description: "validate_fiscal_local_date",
+            sql: include_str!("../migrations/0014_validate_fiscal_local_date.up.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 15,
+            description: "issue_fiscal_invoice_from_receipt",
+            sql: include_str!("../migrations/0015_issue_fiscal_invoice_from_receipt.up.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 16,
+            description: "multiple_services",
+            sql: include_str!("../migrations/0016_multiple_services.up.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

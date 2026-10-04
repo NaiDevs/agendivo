@@ -1,4 +1,4 @@
-import { Clock3, Pencil, Scissors } from "lucide-react";
+import { BriefcaseBusiness, Clock3, Pencil } from "lucide-react";
 import { useState } from "react";
 
 import { ServiceForm } from "@/features/services/components/service-form";
@@ -39,7 +39,7 @@ export function ServicesScreen() {
           </div>
           {services.length === 0 ? (
             <div className="empty-state">
-              <Scissors className="text-primary size-7" />
+              <BriefcaseBusiness className="text-primary size-7" />
               <p className="font-medium">Aún no hay servicios</p>
               <p className="text-muted-foreground max-w-xs text-sm">
                 Crea el primero con su duración y precio.
@@ -49,18 +49,22 @@ export function ServicesScreen() {
             <div className="grid gap-3 sm:grid-cols-2">
               {services.map((service) => (
                 <article
-                  className="rounded-2xl border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="group flex min-h-40 flex-col rounded-2xl border bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"
                   key={service.id}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="bg-secondary flex size-10 items-center justify-center rounded-xl">
-                      <Scissors className="text-primary size-5" />
+                  <div className="flex items-start gap-3">
+                    <div className="bg-secondary flex size-10 shrink-0 items-center justify-center rounded-xl">
+                      <BriefcaseBusiness className="text-primary size-5" />
                     </div>
-                    <span className="text-primary text-base font-bold">
-                      {formatMoney(service.price, currency)}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-semibold">{service.name}</h3>
+                      <p className="text-muted-foreground mt-1 line-clamp-2 text-sm leading-5">
+                        {service.description ?? "Servicio sin descripción"}
+                      </p>
+                    </div>
                     <Button
-                      aria-label="Editar servicio"
+                      aria-label={`Editar ${service.name}`}
+                      className="shrink-0"
                       onClick={() => setEditing(service)}
                       size="icon"
                       type="button"
@@ -69,14 +73,15 @@ export function ServicesScreen() {
                       <Pencil className="size-4" />
                     </Button>
                   </div>
-                  <h3 className="mt-4 font-semibold">{service.name}</h3>
-                  <p className="text-muted-foreground mt-1 min-h-5 truncate text-sm">
-                    {service.description ?? "Servicio sin descripción"}
-                  </p>
-                  <p className="text-muted-foreground mt-3 flex items-center gap-1.5 text-xs font-medium">
-                    <Clock3 className="size-4" />
-                    {service.durationMinutes} minutos
-                  </p>
+                  <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3">
+                    <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+                      <Clock3 className="size-4" />
+                      {service.durationMinutes} minutos
+                    </p>
+                    <span className="text-primary shrink-0 text-base font-bold tabular-nums">
+                      {formatMoney(service.price, currency)}
+                    </span>
+                  </div>
                 </article>
               ))}
             </div>

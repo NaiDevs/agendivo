@@ -58,10 +58,27 @@ Deno.serve(async (request: Request): Promise<Response> => {
     event.type === "customer.subscription.deleted"
   ) {
     const subscription = event.data.object;
-    const businessId = subscription.metadata.business_id;
+    const customerId =
+      typeof subscription.customer === "string"
+        ? subscription.customer
+        : subscription.customer.id;
+    let businessId: string | undefined = subscription.metadata.business_id;
+    if (businessId === undefined) {
+      const { data: storedSubscription, error: lookupError } = await adminClient
+        .from("subscriptions")
+        .select("business_id")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle();
+      if (lookupError !== null) {
+        return jsonResponse(request, 500, {
+          error: "SUBSCRIPTION_LOOKUP_FAILED",
+        });
+      }
+      businessId = storedSubscription?.business_id;
+    }
     if (businessId === undefined) {
       return jsonResponse(request, 400, {
-        error: "BUSINESS_METADATA_REQUIRED",
+        error: "BUSINESS_NOT_FOUND",
       });
     }
 
@@ -69,10 +86,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     const { error } = await adminClient.from("subscriptions").upsert(
       {
         business_id: businessId,
-        stripe_customer_id:
-          typeof subscription.customer === "string"
-            ? subscription.customer
-            : subscription.customer.id,
+        stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
         stripe_price_id: firstItem?.price.id ?? Deno.env.get("STRIPE_PRICE_ID"),
         status: subscription.status,

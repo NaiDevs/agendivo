@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Cloud, LockKeyhole, Sparkles } from "lucide-react";
+import { Cloud, LockKeyhole } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AgendivoBrand } from "@/components/agendivo-brand";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -63,14 +64,13 @@ export function AuthScreen() {
       <div className="page-enter grid w-full max-w-5xl overflow-hidden rounded-3xl border bg-white shadow-2xl lg:grid-cols-[0.9fr_1.1fr]">
         <section className="bg-sidebar hidden p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
-            <div className="bg-primary flex size-12 items-center justify-center rounded-2xl">
-              <Sparkles className="size-5" />
-            </div>
-            <p className="mt-8 text-xs font-semibold tracking-[0.2em] text-white/45 uppercase">
-              Agendivo
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-              Tu negocio disponible donde lo necesites.
+            <AgendivoBrand
+              alt="Agendivo"
+              className="h-10 w-auto max-w-48"
+              variant="logo-horizontal-negative"
+            />
+            <h1 className="mt-10 text-3xl font-semibold tracking-tight">
+              Tu negocio organizado, siempre disponible.
             </h1>
             <p className="mt-4 max-w-sm text-sm leading-6 text-white/60">
               Inicia sesión para proteger tu información y preparar la

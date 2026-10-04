@@ -4,5 +4,6 @@ export interface PaymentRepository {
   findActiveByBusiness(businessId: string): Promise<Payment[]>;
   findByAppointment(appointmentId: string): Promise<Payment[]>;
   create(payment: Payment): Promise<void>;
+  issueFiscalInvoice(payment: Payment): Promise<void>;
   void(payment: Payment): Promise<void>;
 }

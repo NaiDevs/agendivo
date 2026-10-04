@@ -1,0 +1,2 @@
+DROP TRIGGER IF EXISTS advance_fiscal_correlative_after_payment_update;
+DROP TRIGGER IF EXISTS validate_fiscal_payment_update;

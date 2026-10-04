@@ -3,6 +3,7 @@ import { CustomerList } from "@/features/customers/components/customer-list";
 import { useAppStore } from "@/stores/app.store";
 import { useState } from "react";
 import type { Customer } from "@/domain/entities/customer";
+import { CustomerCustomFieldsSection } from "@/features/customers/components/customer-custom-fields-section";
 
 export function CustomersScreen() {
   const customers = useAppStore((state) => state.customers);
@@ -25,6 +26,7 @@ export function CustomersScreen() {
         />
         <CustomerList customers={customers} onEdit={setEditing} />
       </div>
+      <CustomerCustomFieldsSection />
     </section>
   );
 }

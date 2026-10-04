@@ -31,7 +31,7 @@ export function AppointmentsScreen() {
   const readyToSchedule = customers.length > 0;
   const events: EventInput[] = appointments.map((appointment) => ({
     id: appointment.id,
-    title: `${customers.find((item) => item.id === appointment.customerId)?.name ?? "Cliente"} · ${services.find((item) => item.id === appointment.serviceId)?.name ?? "Cita general"}`,
+    title: `${customers.find((item) => item.id === appointment.customerId)?.name ?? "Cliente"} · ${appointment.serviceItems.map((item) => item.name).join(" + ") || services.find((item) => item.id === appointment.serviceId)?.name || "Cita general"}`,
     start: appointment.startsAt,
     end: appointment.endsAt,
     backgroundColor: appointmentColor(appointment.status),

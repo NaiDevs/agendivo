@@ -5,6 +5,7 @@ import { synchronizeBusiness } from "@/domain/services/cloud-sync.service";
 import { getDatabaseClient } from "@/infrastructure/database/connection";
 import {
   getDeviceId,
+  getLastSyncedAt,
   hasPendingLocalChanges,
   markLocalChanges,
   markSynchronizationCompleted,
@@ -26,6 +27,19 @@ export const SYNC_STATUS = {
 
 type SyncStatus = (typeof SYNC_STATUS)[keyof typeof SYNC_STATUS];
 
+export function shouldOpenPendingPrompt(
+  hasPendingChanges: boolean,
+  isOnline: boolean,
+  status: SyncStatus,
+): boolean {
+  return (
+    hasPendingChanges &&
+    isOnline &&
+    status !== SYNC_STATUS.SYNCING &&
+    status !== SYNC_STATUS.SYNCED
+  );
+}
+
 interface SyncStore {
   error: string | null;
   hasPendingChanges: boolean;
@@ -34,8 +48,8 @@ interface SyncStore {
   lastSyncedAt: string | null;
   lastPulled: number;
   dismissPendingPrompt: () => void;
-  loadPendingChanges: () => Promise<void>;
-  markPendingChanges: () => Promise<void>;
+  loadPendingChanges: (businessId: string) => Promise<void>;
+  markPendingChanges: (businessId: string) => Promise<void>;
   openPendingPrompt: () => void;
   status: SyncStatus;
   syncNow: (business: Business) => Promise<boolean>;
@@ -59,19 +73,27 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
 
   dismissPendingPrompt: (): void => set({ isPromptOpen: false }),
 
-  loadPendingChanges: async (): Promise<void> => {
+  loadPendingChanges: async (businessId: string): Promise<void> => {
     const database = await getDatabaseClient();
-    const hasPendingChanges = await hasPendingLocalChanges(database);
-    set({
+    const [hasPendingChanges, lastSyncedAt] = await Promise.all([
+      hasPendingLocalChanges(database, businessId),
+      getLastSyncedAt(database, businessId),
+    ]);
+    set((state) => ({
       hasPendingChanges,
       isPendingStateLoaded: true,
-      isPromptOpen: hasPendingChanges && navigator.onLine,
-    });
+      isPromptOpen: shouldOpenPendingPrompt(
+        hasPendingChanges,
+        navigator.onLine,
+        state.status,
+      ),
+      lastSyncedAt,
+    }));
   },
 
-  markPendingChanges: async (): Promise<void> => {
+  markPendingChanges: async (businessId: string): Promise<void> => {
     const database = await getDatabaseClient();
-    await markLocalChanges(database);
+    await markLocalChanges(database, businessId);
     set({
       error: null,
       hasPendingChanges: true,
@@ -98,16 +120,17 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
     try {
       const database = await getDatabaseClient();
       const deviceId = await getDeviceId(database);
+      const lastSyncedAt = await getLastSyncedAt(database, business.id);
       const { syncedAt, pulled } = await synchronizeBusiness(
         business,
         deviceId,
         "Agendivo Desktop",
-        get().lastSyncedAt,
+        lastSyncedAt,
         new SqliteSyncSource(database),
         new SqliteSyncDestination(database),
         new SupabaseCloudSyncRepository(),
       );
-      await markSynchronizationCompleted(database, syncedAt);
+      await markSynchronizationCompleted(database, business.id, syncedAt);
       set({
         hasPendingChanges: false,
         isPromptOpen: false,
@@ -115,6 +138,9 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
         lastPulled: pulled,
         status: SYNC_STATUS.SYNCED,
       });
+      if (pulled > 0 && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("agendivo:sync-pulled"));
+      }
       return true;
     } catch (error: unknown) {
       set({ error: syncErrorMessage(error), status: SYNC_STATUS.ERROR });

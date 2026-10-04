@@ -8,6 +8,7 @@ export const paymentFormSchema = z.object({
     z.literal(""),
     z.string().uuid("Selecciona una cita válida."),
   ]),
+  serviceIds: z.array(z.string().uuid("Selecciona servicios válidos.")),
   amount: z
     .number()
     .positive("El monto debe ser mayor que cero.")

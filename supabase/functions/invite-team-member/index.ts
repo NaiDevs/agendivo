@@ -104,6 +104,21 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return jsonResponse(request, 403, { error: "INVITATION_FORBIDDEN" });
   }
 
+  const { data: subscription, error: subscriptionError } = await adminClient
+    .from("subscriptions")
+    .select("cancel_at_period_end, current_period_end, status")
+    .eq("business_id", input.businessId)
+    .maybeSingle();
+  const periodEnd = subscription?.current_period_end;
+  const hasPaidSubscription =
+    subscription?.status === "active" &&
+    subscription.cancel_at_period_end === false &&
+    (periodEnd === null ||
+      (typeof periodEnd === "string" && Date.parse(periodEnd) > Date.now()));
+  if (subscriptionError !== null || !hasPaidSubscription) {
+    return jsonResponse(request, 402, { error: "SUBSCRIPTION_REQUIRED" });
+  }
+
   const { data: invitation, error: invitationError } =
     await adminClient.auth.admin.inviteUserByEmail(input.email, {
       data: { full_name: input.name },

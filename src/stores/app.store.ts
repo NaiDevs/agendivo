@@ -4,6 +4,7 @@ import type { Business } from "@/domain/entities/business";
 import type { FiscalConfiguration } from "@/domain/entities/fiscal-configuration";
 import type { Appointment } from "@/domain/entities/appointment";
 import type { Customer } from "@/domain/entities/customer";
+import type { CustomerCustomField } from "@/domain/entities/customer-custom-field";
 import type { Employee } from "@/domain/entities/employee";
 import { EMPLOYEE_ACCOUNT_ROLE } from "@/domain/entities/employee";
 import type { Expense } from "@/domain/entities/expense";
@@ -12,6 +13,7 @@ import type { Service } from "@/domain/entities/service";
 import {
   createBusinessOnboarding,
   updateBusinessProfile,
+  updateFiscalDocumentMode,
   updateFiscalCorrelative,
 } from "@/domain/services/business.service";
 import {
@@ -24,6 +26,11 @@ import {
   updateCustomer,
 } from "@/domain/services/customer.service";
 import {
+  createCustomerCustomField,
+  deleteCustomerCustomField,
+  updateCustomerCustomField,
+} from "@/domain/services/customer-custom-field.service";
+import {
   createEmployee,
   updateEmployee,
 } from "@/domain/services/employee.service";
@@ -34,7 +41,9 @@ import {
 } from "@/domain/services/expense.service";
 import {
   createPayment,
+  issueFiscalInvoice,
   pendingBalance,
+  reflectIssuedFiscalInvoice,
   voidPayment as voidPaymentRecord,
 } from "@/domain/services/payment.service";
 import {
@@ -49,6 +58,7 @@ import {
 import { SqliteBusinessRepository } from "@/infrastructure/repositories/sqlite-business.repository";
 import { SqliteAppointmentRepository } from "@/infrastructure/repositories/sqlite-appointment.repository";
 import { SqliteCustomerRepository } from "@/infrastructure/repositories/sqlite-customer.repository";
+import { SqliteCustomerCustomFieldRepository } from "@/infrastructure/repositories/sqlite-customer-custom-field.repository";
 import { SqliteEmployeeRepository } from "@/infrastructure/repositories/sqlite-employee.repository";
 import { SupabaseTeamInvitationRepository } from "@/infrastructure/repositories/supabase-team-invitation.repository";
 import { SqliteExpenseRepository } from "@/infrastructure/repositories/sqlite-expense.repository";
@@ -60,6 +70,7 @@ import type { FiscalCorrelativeFormValues } from "@/schemas/fiscal.schema";
 import type { BusinessFormValues } from "@/schemas/business.schema";
 import type { AppointmentFormValues } from "@/schemas/appointment.schema";
 import type { CustomerFormValues } from "@/schemas/customer.schema";
+import type { CustomerCustomFieldFormValues } from "@/schemas/customer-custom-field.schema";
 import type { EmployeeFormValues } from "@/schemas/employee.schema";
 import { employeeFormSchema } from "@/schemas/employee.schema";
 import type { ExpenseFormValues } from "@/schemas/expense.schema";
@@ -69,8 +80,8 @@ import { loadingService, toastService } from "@/stores/feedback.store";
 import { useSyncStore } from "@/stores/sync.store";
 import { useAuthStore } from "@/stores/auth.store";
 
-async function markPendingSync(): Promise<void> {
-  await useSyncStore.getState().markPendingChanges();
+async function markPendingSync(businessId: string): Promise<void> {
+  await useSyncStore.getState().markPendingChanges(businessId);
 }
 
 function byPaidAtDesc(left: Payment, right: Payment): number {
@@ -97,6 +108,7 @@ interface AppStore {
   fiscalConfiguration: FiscalConfiguration | null;
   appointments: Appointment[];
   customers: Customer[];
+  customerCustomFields: CustomerCustomField[];
   employees: Employee[];
   services: Service[];
   payments: Payment[];
@@ -111,6 +123,7 @@ interface AppStore {
   editFiscalCorrelative: (
     values: FiscalCorrelativeFormValues,
   ) => Promise<boolean>;
+  setFiscalDocumentMode: (invoicesEnabled: boolean) => Promise<boolean>;
   addAppointment: (values: AppointmentFormValues) => Promise<boolean>;
   editAppointment: (
     appointmentId: string,
@@ -122,6 +135,14 @@ interface AppStore {
     customerId: string,
     values: CustomerFormValues,
   ) => Promise<boolean>;
+  addCustomerCustomField: (
+    values: CustomerCustomFieldFormValues,
+  ) => Promise<boolean>;
+  editCustomerCustomField: (
+    fieldId: string,
+    values: CustomerCustomFieldFormValues,
+  ) => Promise<boolean>;
+  deleteCustomerCustomField: (fieldId: string) => Promise<boolean>;
   addEmployee: (values: EmployeeFormValues) => Promise<boolean>;
   editEmployee: (
     employeeId: string,
@@ -132,7 +153,8 @@ interface AppStore {
     serviceId: string,
     values: ServiceFormValues,
   ) => Promise<boolean>;
-  addPayment: (values: PaymentFormValues) => Promise<boolean>;
+  addPayment: (values: PaymentFormValues) => Promise<Payment | null>;
+  issuePaymentFiscalInvoice: (paymentId: string) => Promise<Payment | null>;
   voidPayment: (paymentId: string) => Promise<boolean>;
   appointmentBalance: (appointmentId: string) => number;
   addExpense: (values: ExpenseFormValues) => Promise<boolean>;
@@ -150,6 +172,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   fiscalConfiguration: null,
   appointments: [],
   customers: [],
+  customerCustomFields: [],
   employees: [],
   services: [],
   payments: [],
@@ -180,6 +203,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           fiscalConfiguration: null,
           appointments: [],
           customers: [],
+          customerCustomFields: [],
           employees: [],
           services: [],
           payments: [],
@@ -189,6 +213,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
 
       const customerRepository = new SqliteCustomerRepository(database);
+      const customerCustomFieldRepository =
+        new SqliteCustomerCustomFieldRepository(database);
       const appointmentRepository = new SqliteAppointmentRepository(database);
       const employeeRepository = new SqliteEmployeeRepository(database);
       const serviceRepository = new SqliteServiceRepository(database);
@@ -197,6 +223,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const [
         appointments,
         customers,
+        customerCustomFields,
         loadedEmployees,
         services,
         payments,
@@ -205,6 +232,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       ] = await Promise.all([
         appointmentRepository.findActiveByBusiness(business.id),
         customerRepository.findActiveByBusiness(business.id),
+        customerCustomFieldRepository.findActiveByBusiness(business.id),
         employeeRepository.findActiveByBusiness(business.id),
         serviceRepository.findActiveByBusiness(business.id),
         paymentRepository.findActiveByBusiness(business.id),
@@ -255,7 +283,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           );
         }
         employees.sort((left, right) => left.name.localeCompare(right.name));
-        await markPendingSync();
+        await markPendingSync(business.id);
       }
       set({
         phase: APP_PHASE.READY,
@@ -263,6 +291,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         fiscalConfiguration,
         appointments,
         customers,
+        customerCustomFields,
         employees,
         services,
         payments,
@@ -303,13 +332,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const fiscalConfiguration = await repository.findFiscalConfiguration(
         business.id,
       );
-      await markPendingSync();
+      await markPendingSync(business.id);
       set({
         phase: APP_PHASE.READY,
         business,
         fiscalConfiguration,
         appointments: [],
         customers: [],
+        customerCustomFields: [],
         employees: [ownerEmployee],
         services: [],
         payments: [],
@@ -338,7 +368,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         await getDatabaseClient(),
       );
       const business = await updateBusinessProfile(current, values, repository);
-      await markPendingSync();
+      await markPendingSync(business.id);
       set({ business, isSaving: false });
       toastService.success("Perfil actualizado correctamente");
       return true;
@@ -371,7 +401,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         values,
         repository,
       );
-      await markPendingSync();
+      await markPendingSync(business.id);
       set({ fiscalConfiguration, isSaving: false });
       toastService.success("Correlativo actualizado correctamente");
       return true;
@@ -379,6 +409,36 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const message = getErrorMessage(error);
       set({ isSaving: false, error: message });
       toastService.error("No pudimos actualizar el correlativo", message);
+      return false;
+    } finally {
+      loadingService.stop(operationId);
+    }
+  },
+
+  setFiscalDocumentMode: async (invoicesEnabled: boolean): Promise<boolean> => {
+    const current = get().fiscalConfiguration;
+    const business = get().business;
+    if (business === null || current === null) return false;
+    set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Actualizando el documento…");
+    try {
+      const database = await getDatabaseClient();
+      const configuration = await updateFiscalDocumentMode(
+        current,
+        invoicesEnabled,
+        await getDeviceId(database),
+        new SqliteBusinessRepository(database),
+      );
+      await markPendingSync(business.id);
+      set({ fiscalConfiguration: configuration, isSaving: false });
+      toastService.success(
+        invoicesEnabled ? "Factura fiscal activada" : "Recibo de pago activado",
+      );
+      return true;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos cambiar el documento", message);
       return false;
     } finally {
       loadingService.stop(operationId);
@@ -405,8 +465,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
         business.id,
         deviceId,
         repository,
+        get().services,
       );
-      await markPendingSync();
+      await markPendingSync(business.id);
       set({
         appointments: [...get().appointments, appointment].sort((left, right) =>
           left.startsAt.localeCompare(right.startsAt),
@@ -444,8 +505,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const database = await getDatabaseClient();
       const repository = new SqliteAppointmentRepository(database);
-      const appointment = await updateAppointment(current, values, repository);
-      await markPendingSync();
+      const appointment = await updateAppointment(
+        current,
+        values,
+        repository,
+        get().services,
+      );
+      await markPendingSync(appointment.businessId);
       set({
         appointments: get()
           .appointments.map((item) =>
@@ -483,7 +549,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const database = await getDatabaseClient();
       const repository = new SqliteAppointmentRepository(database);
       const appointment = await cancelAppointmentRecord(current, repository);
-      await markPendingSync();
+      await markPendingSync(appointment.businessId);
       set({
         appointments: get().appointments.map((item) =>
           item.id === appointment.id ? appointment : item,
@@ -523,8 +589,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
         business.id,
         deviceId,
         repository,
+        get().customerCustomFields,
       );
-      await markPendingSync();
+      await markPendingSync(business.id);
       const customers = [...get().customers, customer].sort((left, right) =>
         left.name.localeCompare(right.name),
       );
@@ -553,8 +620,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const repository = new SqliteCustomerRepository(
         await getDatabaseClient(),
       );
-      const customer = await updateCustomer(current, values, repository);
-      await markPendingSync();
+      const customer = await updateCustomer(
+        current,
+        values,
+        repository,
+        get().customerCustomFields,
+      );
+      await markPendingSync(customer.businessId);
       set({
         customers: get()
           .customers.map((item) => (item.id === customer.id ? customer : item))
@@ -567,6 +639,109 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const message = getErrorMessage(error);
       set({ isSaving: false, error: message });
       toastService.error("No pudimos actualizar el cliente", message);
+      return false;
+    } finally {
+      loadingService.stop(operationId);
+    }
+  },
+
+  addCustomerCustomField: async (
+    values: CustomerCustomFieldFormValues,
+  ): Promise<boolean> => {
+    const business = get().business;
+    if (business === null) return false;
+    set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Guardando el campo…");
+    try {
+      const database = await getDatabaseClient();
+      const repository = new SqliteCustomerCustomFieldRepository(database);
+      const field = await createCustomerCustomField(
+        values,
+        business.id,
+        await getDeviceId(database),
+        get().customerCustomFields.length,
+        repository,
+      );
+      await markPendingSync(business.id);
+      set({
+        customerCustomFields: [...get().customerCustomFields, field],
+        isSaving: false,
+      });
+      toastService.success("Campo personalizado creado");
+      return true;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos guardar el campo", message);
+      return false;
+    } finally {
+      loadingService.stop(operationId);
+    }
+  },
+
+  editCustomerCustomField: async (
+    fieldId: string,
+    values: CustomerCustomFieldFormValues,
+  ): Promise<boolean> => {
+    const current = get().customerCustomFields.find(
+      (field) => field.id === fieldId,
+    );
+    if (current === undefined) return false;
+    set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Actualizando el campo…");
+    try {
+      const repository = new SqliteCustomerCustomFieldRepository(
+        await getDatabaseClient(),
+      );
+      const field = await updateCustomerCustomField(
+        current,
+        values,
+        repository,
+      );
+      await markPendingSync(field.businessId);
+      set({
+        customerCustomFields: get().customerCustomFields.map((item) =>
+          item.id === field.id ? field : item,
+        ),
+        isSaving: false,
+      });
+      toastService.success("Campo personalizado actualizado");
+      return true;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos actualizar el campo", message);
+      return false;
+    } finally {
+      loadingService.stop(operationId);
+    }
+  },
+
+  deleteCustomerCustomField: async (fieldId: string): Promise<boolean> => {
+    const current = get().customerCustomFields.find(
+      (field) => field.id === fieldId,
+    );
+    if (current === undefined) return false;
+    set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Eliminando el campo…");
+    try {
+      const repository = new SqliteCustomerCustomFieldRepository(
+        await getDatabaseClient(),
+      );
+      const field = await deleteCustomerCustomField(current, repository);
+      await markPendingSync(field.businessId);
+      set({
+        customerCustomFields: get().customerCustomFields.filter(
+          (item) => item.id !== field.id,
+        ),
+        isSaving: false,
+      });
+      toastService.success("Campo personalizado eliminado");
+      return true;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos eliminar el campo", message);
       return false;
     } finally {
       loadingService.stop(operationId);
@@ -625,7 +800,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           userId: invitation.userId,
         },
       );
-      await markPendingSync();
+      await markPendingSync(business.id);
       const employees = [...get().employees, employee].sort((left, right) =>
         left.name.localeCompare(right.name),
       );
@@ -658,7 +833,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         await getDatabaseClient(),
       );
       const employee = await updateEmployee(current, values, repository);
-      await markPendingSync();
+      await markPendingSync(employee.businessId);
       set({
         employees: get()
           .employees.map((item) => (item.id === employee.id ? employee : item))
@@ -699,7 +874,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         deviceId,
         repository,
       );
-      await markPendingSync();
+      await markPendingSync(business.id);
       const services = [...get().services, service].sort((left, right) =>
         left.name.localeCompare(right.name),
       );
@@ -727,7 +902,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const repository = new SqliteServiceRepository(await getDatabaseClient());
       const service = await updateService(current, values, repository);
-      await markPendingSync();
+      await markPendingSync(service.businessId);
       set({
         services: get()
           .services.map((item) => (item.id === service.id ? service : item))
@@ -759,13 +934,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
     return pendingBalance(appointment.price, appointmentPayments);
   },
 
-  addPayment: async (values: PaymentFormValues): Promise<boolean> => {
+  addPayment: async (values: PaymentFormValues): Promise<Payment | null> => {
     const business = get().business;
     if (business === null) {
       const message = "Configura el negocio antes de registrar un pago.";
       set({ error: message });
       toastService.error("No pudimos registrar el pago", message);
-      return false;
+      return null;
     }
 
     set({ isSaving: true, error: null });
@@ -784,18 +959,83 @@ export const useAppStore = create<AppStore>((set, get) => ({
         deviceId,
         repository,
         remainingBalance,
+        get().fiscalConfiguration,
+        get().services,
+        values.appointmentId === ""
+          ? null
+          : (get().appointments.find(
+              (appointment) => appointment.id === values.appointmentId,
+            ) ?? null),
       );
+      const currentFiscalConfiguration = get().fiscalConfiguration;
+      const fiscalConfiguration =
+        payment.fiscalInvoice === null || currentFiscalConfiguration === null
+          ? currentFiscalConfiguration
+          : reflectIssuedFiscalInvoice(currentFiscalConfiguration, payment);
+      if (payment.fiscalInvoice !== null) {
+        await markPendingSync(business.id);
+      }
       set({
         payments: [payment, ...get().payments].sort(byPaidAtDesc),
+        fiscalConfiguration,
         isSaving: false,
       });
       toastService.success("Pago registrado correctamente");
-      return true;
+      return payment;
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       set({ isSaving: false, error: message });
       toastService.error("No pudimos registrar el pago", message);
-      return false;
+      return null;
+    } finally {
+      loadingService.stop(operationId);
+    }
+  },
+
+  issuePaymentFiscalInvoice: async (
+    paymentId: string,
+  ): Promise<Payment | null> => {
+    const business = get().business;
+    const configuration = get().fiscalConfiguration;
+    const current = get().payments.find((payment) => payment.id === paymentId);
+    if (business === null || configuration === null || current === undefined) {
+      const message = "No encontramos la configuración fiscal del pago.";
+      set({ error: message });
+      toastService.error("No pudimos emitir la factura", message);
+      return null;
+    }
+
+    set({ isSaving: true, error: null });
+    const operationId = loadingService.start("Emitiendo factura fiscal…");
+    try {
+      const database = await getDatabaseClient();
+      const deviceId = await getDeviceId(database);
+      const repository = new SqlitePaymentRepository(database);
+      const payment = await issueFiscalInvoice(
+        current,
+        configuration,
+        deviceId,
+        repository,
+      );
+      const fiscalConfiguration = reflectIssuedFiscalInvoice(
+        configuration,
+        payment,
+      );
+      await markPendingSync(business.id);
+      set({
+        payments: get().payments.map((item) =>
+          item.id === payment.id ? payment : item,
+        ),
+        fiscalConfiguration,
+        isSaving: false,
+      });
+      toastService.success("Factura fiscal emitida correctamente");
+      return payment;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      set({ isSaving: false, error: message });
+      toastService.error("No pudimos emitir la factura", message);
+      return null;
     } finally {
       loadingService.stop(operationId);
     }

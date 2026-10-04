@@ -12,6 +12,17 @@ import {
 } from "@/schemas/business.schema";
 import { useAppStore } from "@/stores/app.store";
 
+const CURRENCY_OPTIONS = [
+  { code: "HNL", label: "HNL — Lempira hondureño" },
+  { code: "GTQ", label: "GTQ — Quetzal guatemalteco" },
+  { code: "USD", label: "USD — Dólar estadounidense" },
+  { code: "MXN", label: "MXN — Peso mexicano" },
+  { code: "CRC", label: "CRC — Colón costarricense" },
+  { code: "NIO", label: "NIO — Córdoba nicaragüense" },
+  { code: "PAB", label: "PAB — Balboa panameño" },
+  { code: "COP", label: "COP — Peso colombiano" },
+] as const;
+
 export function BusinessProfileForm({
   business,
   onClose,
@@ -61,14 +72,22 @@ export function BusinessProfileForm({
       <Field label="Dirección" error={errors.address?.message}>
         <Input {...register("address")} />
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Zona horaria" error={errors.timezone?.message}>
-          <Input {...register("timezone")} />
-        </Field>
-        <Field label="Moneda" error={errors.currency?.message}>
-          <Input maxLength={3} {...register("currency")} />
-        </Field>
-      </div>
+      <Field label="Moneda" error={errors.currency?.message}>
+        <select
+          aria-label="Moneda"
+          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/30 h-11 w-full rounded-xl border px-3 text-sm outline-none focus-visible:ring-3"
+          {...register("currency")}
+        >
+          {!CURRENCY_OPTIONS.some(({ code }) => code === business.currency) && (
+            <option value={business.currency}>{business.currency}</option>
+          )}
+          {CURRENCY_OPTIONS.map(({ code, label }) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </Field>
       <div className="grid grid-cols-2 gap-3 border-t pt-5">
         <Button onClick={onClose} type="button" variant="outline">
           Cancelar

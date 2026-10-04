@@ -8,6 +8,10 @@ interface DeviceMetadataRow {
 const LAST_LOCAL_CHANGE_KEY = "last_local_change_at";
 const LAST_SYNCED_KEY = "last_synced_at";
 
+function businessMetadataKey(key: string, businessId: string): string {
+  return `${key}:${businessId}`;
+}
+
 let deviceIdPromise: Promise<string> | null = null;
 
 async function loadOrCreateDeviceId(database: DatabaseClient): Promise<string> {
@@ -82,30 +86,58 @@ async function saveMetadata(
 
 export async function markLocalChanges(
   database: DatabaseClient,
+  businessId: string,
 ): Promise<void> {
-  await saveMetadata(database, LAST_LOCAL_CHANGE_KEY, new Date().toISOString());
+  await saveMetadata(
+    database,
+    businessMetadataKey(LAST_LOCAL_CHANGE_KEY, businessId),
+    new Date().toISOString(),
+  );
 }
 
 export async function markSynchronizationCompleted(
   database: DatabaseClient,
+  businessId: string,
   syncedAt: string,
 ): Promise<void> {
-  await saveMetadata(database, LAST_SYNCED_KEY, syncedAt);
+  await saveMetadata(
+    database,
+    businessMetadataKey(LAST_SYNCED_KEY, businessId),
+    syncedAt,
+  );
 }
 
 export async function hasPendingLocalChanges(
   database: DatabaseClient,
+  businessId: string,
 ): Promise<boolean> {
+  const lastLocalChangeKey = businessMetadataKey(
+    LAST_LOCAL_CHANGE_KEY,
+    businessId,
+  );
+  const lastSyncedKey = businessMetadataKey(LAST_SYNCED_KEY, businessId);
   const rows = await database.select<DeviceMetadataRow[]>(
     "SELECT key, value FROM device_metadata WHERE key IN (?, ?)",
-    [LAST_LOCAL_CHANGE_KEY, LAST_SYNCED_KEY],
+    [lastLocalChangeKey, lastSyncedKey],
   );
   const metadata = new Map(rows.map((row) => [row.key, row.value]));
-  const lastLocalChange = metadata.get(LAST_LOCAL_CHANGE_KEY);
-  const lastSynced = metadata.get(LAST_SYNCED_KEY);
+  const lastLocalChange = metadata.get(lastLocalChangeKey);
+  const lastSynced = metadata.get(lastSyncedKey);
 
   return (
     lastLocalChange !== undefined &&
     (lastSynced === undefined || lastLocalChange > lastSynced)
   );
+}
+
+export async function getLastSyncedAt(
+  database: DatabaseClient,
+  businessId: string,
+): Promise<string | null> {
+  const rows = await database.select<DeviceMetadataRow[]>(
+    "SELECT value FROM device_metadata WHERE key = ? LIMIT 1",
+    [businessMetadataKey(LAST_SYNCED_KEY, businessId)],
+  );
+
+  return rows[0]?.value ?? null;
 }

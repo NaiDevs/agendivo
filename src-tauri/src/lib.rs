@@ -48,11 +48,24 @@ fn migrate_legacy_app_data() -> io::Result<()> {
     let Some(config_root) = config_root() else {
         return Ok(());
     };
+
+    migrate_legacy_app_data_from(&config_root)
+}
+
+fn migrate_legacy_app_data_from(config_root: &Path) -> io::Result<()> {
     let legacy_database = config_root.join("com.naide.naicitas").join("nai-citas.db");
     let agendivo_directory = config_root.join("com.naide.agendivo");
     let agendivo_database = agendivo_directory.join("agendivo.db");
+    let migration_marker = agendivo_directory.join(".legacy-database-migration-complete");
 
-    if !legacy_database.exists() || agendivo_database.exists() {
+    if agendivo_database.exists() {
+        if legacy_database.exists() && !migration_marker.exists() {
+            std::fs::write(migration_marker, b"")?;
+        }
+        return Ok(());
+    }
+
+    if !legacy_database.exists() || migration_marker.exists() {
         return Ok(());
     }
 
@@ -60,6 +73,7 @@ fn migrate_legacy_app_data() -> io::Result<()> {
     std::fs::copy(&legacy_database, &agendivo_database)?;
     copy_sqlite_sidecar(&legacy_database, &agendivo_database, "-wal")?;
     copy_sqlite_sidecar(&legacy_database, &agendivo_database, "-shm")?;
+    std::fs::write(migration_marker, b"")?;
     Ok(())
 }
 
@@ -75,6 +89,45 @@ fn copy_sqlite_sidecar(source: &Path, destination: &Path, suffix: &str) -> io::R
 #[cfg(target_os = "windows")]
 fn config_root() -> Option<PathBuf> {
     std::env::var_os("APPDATA").map(PathBuf::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::migrate_legacy_app_data_from;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn legacy_database_is_migrated_only_once() {
+        let unique_suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("el reloj del sistema debe ser válido")
+            .as_nanos();
+        let config_root = std::env::temp_dir().join(format!(
+            "agendivo-legacy-migration-{}-{unique_suffix}",
+            std::process::id()
+        ));
+        let legacy_directory = config_root.join("com.naide.naicitas");
+        let legacy_database = legacy_directory.join("nai-citas.db");
+        let agendivo_database = config_root
+            .join("com.naide.agendivo")
+            .join("agendivo.db");
+
+        std::fs::create_dir_all(&legacy_directory).expect("debe crear el directorio temporal");
+        std::fs::write(&legacy_database, b"legacy").expect("debe crear la base heredada");
+
+        migrate_legacy_app_data_from(&config_root).expect("debe completar la migración inicial");
+        assert_eq!(
+            std::fs::read(&agendivo_database).expect("debe crear la base de Agendivo"),
+            b"legacy"
+        );
+
+        std::fs::remove_file(&agendivo_database).expect("debe simular el reinicio de SQLite");
+        migrate_legacy_app_data_from(&config_root)
+            .expect("debe respetar la migración completada");
+        assert!(!agendivo_database.exists());
+
+        std::fs::remove_dir_all(config_root).expect("debe limpiar el directorio temporal");
+    }
 }
 
 #[cfg(target_os = "macos")]

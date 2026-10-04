@@ -6,6 +6,8 @@ import {
 } from "@/domain/entities/appointment";
 import { AppointmentConflictError } from "@/domain/errors/appointment-conflict.error";
 import type { AppointmentRepository } from "@/domain/repositories/appointment.repository";
+import type { Service } from "@/domain/entities/service";
+import type { ServiceLineItem } from "@/domain/entities/service-line-item";
 import {
   appointmentFormSchema,
   type AppointmentFormValues,
@@ -44,16 +46,19 @@ export async function createAppointment(
   businessId: string,
   deviceId: string,
   repository: AppointmentRepository,
+  services: Service[],
 ): Promise<Appointment> {
   const input = appointmentFormSchema.parse(values);
   const schedule = await ensureAvailability(input, repository);
   const now = new Date().toISOString();
+  const serviceItems = buildServiceItems(input.serviceIds, services);
   const appointment: Appointment = {
     id: crypto.randomUUID(),
     businessId,
     customerId: input.customerId,
     employeeId: input.employeeId === "" ? null : input.employeeId,
-    serviceId: input.serviceId === "" ? null : input.serviceId,
+    serviceId: serviceItems[0]?.serviceId ?? null,
+    serviceItems,
     startsAt: schedule.startsAt,
     endsAt: schedule.endsAt,
     status: input.status,
@@ -74,14 +79,17 @@ export async function updateAppointment(
   current: Appointment,
   values: AppointmentFormValues,
   repository: AppointmentRepository,
+  services: Service[],
 ): Promise<Appointment> {
   const input = appointmentFormSchema.parse(values);
   const schedule = await ensureAvailability(input, repository, current.id);
+  const serviceItems = buildServiceItems(input.serviceIds, services);
   const appointment: Appointment = {
     ...current,
     customerId: input.customerId,
     employeeId: input.employeeId === "" ? null : input.employeeId,
-    serviceId: input.serviceId === "" ? null : input.serviceId,
+    serviceId: serviceItems[0]?.serviceId ?? null,
+    serviceItems,
     startsAt: schedule.startsAt,
     endsAt: schedule.endsAt,
     status: input.status,
@@ -93,6 +101,26 @@ export async function updateAppointment(
 
   await repository.update(appointment);
   return appointment;
+}
+
+function buildServiceItems(
+  serviceIds: string[],
+  services: Service[],
+): ServiceLineItem[] {
+  return serviceIds.map((serviceId) => {
+    const service = services.find((item) => item.id === serviceId);
+    if (service === undefined) {
+      throw new Error(
+        "Uno de los servicios seleccionados ya no está disponible.",
+      );
+    }
+    return {
+      serviceId: service.id,
+      name: service.name,
+      durationMinutes: service.durationMinutes,
+      price: service.price,
+    };
+  });
 }
 
 export async function cancelAppointment(

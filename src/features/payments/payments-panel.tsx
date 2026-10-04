@@ -1,16 +1,19 @@
 import { CircleAlert } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import type { Payment } from "@/domain/entities/payment";
 import { PaymentForm } from "@/features/payments/components/payment-form";
 import { PaymentList } from "@/features/payments/components/payment-list";
 import { PaymentReceipt } from "@/features/payments/components/payment-receipt";
+import { buildPaymentReceiptData } from "@/features/payments/payment-receipt-data";
 import { useAppStore } from "@/stores/app.store";
 
 export function PaymentsPanel() {
   const business = useAppStore((state) => state.business);
   const customers = useAppStore((state) => state.customers);
   const appointments = useAppStore((state) => state.appointments);
+  const employees = useAppStore((state) => state.employees);
+  const services = useAppStore((state) => state.services);
   const payments = useAppStore((state) => state.payments);
   const isSaving = useAppStore((state) => state.isSaving);
   const voidPayment = useAppStore((state) => state.voidPayment);
@@ -18,18 +21,29 @@ export function PaymentsPanel() {
   const readyToCharge = customers.length > 0;
   const [receiptPayment, setReceiptPayment] = useState<Payment | null>(null);
 
-  useEffect(() => {
-    if (receiptPayment === null) {
-      return;
-    }
-    const clear = (): void => setReceiptPayment(null);
-    window.addEventListener("afterprint", clear, { once: true });
-    const frame = requestAnimationFrame(() => window.print());
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("afterprint", clear);
-    };
-  }, [receiptPayment]);
+  const receiptAppointment =
+    appointments.find((item) => item.id === receiptPayment?.appointmentId) ??
+    null;
+  const receiptData =
+    receiptPayment === null || business === null
+      ? null
+      : buildPaymentReceiptData({
+          appointment: receiptAppointment,
+          business,
+          customer:
+            customers.find((item) => item.id === receiptPayment.customerId) ??
+            null,
+          employee:
+            employees.find(
+              (item) => item.id === receiptAppointment?.employeeId,
+            ) ?? null,
+          payment: receiptPayment,
+          payments,
+          service:
+            services.find(
+              (item) => item.id === receiptAppointment?.serviceId,
+            ) ?? null,
+        });
 
   const onVoid = (paymentId: string): void => {
     if (
@@ -55,7 +69,7 @@ export function PaymentsPanel() {
         </div>
       )}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(300px,0.72fr)_1.28fr]">
-        {readyToCharge && <PaymentForm />}
+        {readyToCharge && <PaymentForm onPaymentSaved={setReceiptPayment} />}
         <PaymentList
           currency={currency}
           customers={customers}
@@ -65,19 +79,11 @@ export function PaymentsPanel() {
           payments={payments}
         />
       </div>
-      {receiptPayment !== null && business !== null && (
+      {receiptData !== null && (
         <PaymentReceipt
-          appointment={
-            appointments.find(
-              (item) => item.id === receiptPayment.appointmentId,
-            ) ?? null
-          }
-          business={business}
-          customer={
-            customers.find((item) => item.id === receiptPayment.customerId) ??
-            null
-          }
-          payment={receiptPayment}
+          data={receiptData}
+          onClose={() => setReceiptPayment(null)}
+          onPrint={() => window.print()}
         />
       )}
     </div>

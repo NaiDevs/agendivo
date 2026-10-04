@@ -4,6 +4,7 @@ import { CircleDollarSign, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Customer } from "@/domain/entities/customer";
 import type { Payment } from "@/domain/entities/payment";
+import { PAYMENT_DOCUMENT_TYPE } from "@/domain/entities/payment";
 import { paymentMethodLabel } from "@/features/payments/payment-presenter";
 import { formatMoney } from "@/lib/format-money";
 
@@ -61,6 +62,10 @@ export function PaymentList({
                     {format(new Date(payment.paidAt), "dd/MM/yyyy HH:mm")} ·{" "}
                     {paymentMethodLabel[payment.method]}
                     {payment.appointmentId !== null && " · cita"}
+                    {payment.documentType ===
+                    PAYMENT_DOCUMENT_TYPE.FISCAL_INVOICE
+                      ? " · factura fiscal"
+                      : " · recibo"}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -68,7 +73,12 @@ export function PaymentList({
                     {formatMoney(payment.amount, currency)}
                   </span>
                   <Button
-                    aria-label="Imprimir recibo"
+                    aria-label={
+                      payment.documentType ===
+                      PAYMENT_DOCUMENT_TYPE.FISCAL_INVOICE
+                        ? "Abrir factura fiscal"
+                        : "Abrir recibo"
+                    }
                     onClick={() => onPrint(payment)}
                     size="icon"
                     type="button"

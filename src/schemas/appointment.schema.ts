@@ -8,10 +8,9 @@ export const appointmentFormSchema = z.object({
     z.literal(""),
     z.string().uuid("Selecciona un profesional válido."),
   ]),
-  serviceId: z.union([
-    z.literal(""),
-    z.string().uuid("Selecciona un servicio válido."),
-  ]),
+  serviceIds: z
+    .array(z.string().uuid("Selecciona servicios válidos."))
+    .min(1, "Selecciona al menos un servicio."),
   startsAt: z
     .string()
     .min(1, "Selecciona fecha y hora.")

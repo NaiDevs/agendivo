@@ -1,11 +1,13 @@
-import { LogOut, Sparkles } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 
 import { AppShell } from "@/app/app-shell";
 import { APP_SECTION, type AppSection } from "@/app/navigation";
+import { AgendivoBrand } from "@/components/agendivo-brand";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AuthScreen } from "@/features/auth/auth-screen";
+import { SubscriptionGate } from "@/features/billing/subscription-gate";
 import { CustomersScreen } from "@/features/customers/customers-screen";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
 import { CashScreen } from "@/features/cash/cash-screen";
@@ -16,9 +18,11 @@ import { SettingsScreen } from "@/features/settings/settings-screen";
 import { PendingSyncDialog } from "@/features/sync/pending-sync-dialog";
 import { BusinessSetupForm } from "@/features/settings/components/business-setup-form";
 import { RestoreBackupButton } from "@/features/settings/components/database-backup-card";
+import { hasPaidSubscription } from "@/domain/entities/subscription";
 import { APP_PHASE, useAppStore } from "@/stores/app.store";
 import { AUTH_PHASE, useAuthStore } from "@/stores/auth.store";
 import { useSyncStore } from "@/stores/sync.store";
+import { useSubscriptionStore } from "@/stores/subscription.store";
 
 const AppointmentsScreen = lazy(async () => {
   const module = await import("@/features/appointments/appointments-screen");
@@ -36,6 +40,9 @@ function App() {
   const fiscalConfiguration = useAppStore((state) => state.fiscalConfiguration);
   const appointments = useAppStore((state) => state.appointments);
   const customers = useAppStore((state) => state.customers);
+  const customerCustomFields = useAppStore(
+    (state) => state.customerCustomFields,
+  );
   const employees = useAppStore((state) => state.employees);
   const services = useAppStore((state) => state.services);
   const authPhase = useAuthStore((state) => state.phase);
@@ -47,6 +54,14 @@ function App() {
   );
   const signOut = useAuthStore((state) => state.signOut);
   const syncNow = useSyncStore((state) => state.syncNow);
+  const checkedBusinessId = useSubscriptionStore(
+    (state) => state.checkedBusinessId,
+  );
+  const subscription = useSubscriptionStore((state) => state.subscription);
+  const hasAccess =
+    business !== null &&
+    checkedBusinessId === business.id &&
+    hasPaidSubscription(subscription);
 
   useEffect(() => {
     void initializeAuth();
@@ -61,10 +76,20 @@ function App() {
   }, [authPhase, authUser, initialize]);
 
   useEffect(() => {
+    const reloadPulledData = (): void => {
+      if (authUser !== null) void initialize(authUser.id);
+    };
+    window.addEventListener("agendivo:sync-pulled", reloadPulledData);
+    return (): void =>
+      window.removeEventListener("agendivo:sync-pulled", reloadPulledData);
+  }, [authUser, initialize]);
+
+  useEffect(() => {
     if (
       authPhase !== AUTH_PHASE.AUTHENTICATED ||
       phase !== APP_PHASE.READY ||
-      business === null
+      business === null ||
+      !hasAccess
     ) {
       return;
     }
@@ -79,8 +104,10 @@ function App() {
     authPhase,
     business,
     customers,
+    customerCustomFields,
     employees,
     fiscalConfiguration,
+    hasAccess,
     phase,
     services,
     syncNow,
@@ -137,9 +164,11 @@ function App() {
       <main className="setup-background grid min-h-screen place-items-center p-4 sm:p-8">
         <div className="page-enter w-full max-w-4xl">
           <div className="mb-6 text-center">
-            <div className="bg-primary text-primary-foreground mx-auto flex size-12 items-center justify-center rounded-2xl shadow-lg">
-              <Sparkles className="size-5" />
-            </div>
+            <AgendivoBrand
+              alt="Agendivo"
+              className="mx-auto size-14"
+              variant="isotipo-color"
+            />
             <p className="eyebrow mt-4">Bienvenido a Agendivo</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">
               Comencemos por tu negocio
@@ -158,12 +187,12 @@ function App() {
   }
 
   return (
-    <>
+    <SubscriptionGate>
       <AppShell activeSection={activeSection} onNavigate={setActiveSection}>
         {renderSection(activeSection, setActiveSection)}
       </AppShell>
       <PendingSyncDialog />
-    </>
+    </SubscriptionGate>
   );
 }
 
@@ -199,9 +228,11 @@ function StartupLoader({ message }: { message: string }) {
   return (
     <main className="bg-sidebar flex min-h-screen items-center justify-center p-8 text-white">
       <div className="text-center">
-        <div className="bg-primary mx-auto flex size-12 animate-pulse items-center justify-center rounded-2xl">
-          <Sparkles className="size-5" />
-        </div>
+        <AgendivoBrand
+          alt="Agendivo"
+          className="mx-auto size-14 animate-pulse"
+          variant="isotipo-negative"
+        />
         <p className="mt-4 text-sm text-white/55">{message}</p>
       </div>
     </main>

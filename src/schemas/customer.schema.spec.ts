@@ -9,6 +9,7 @@ describe("customerFormSchema", () => {
       phone: "",
       email: "",
       notes: "",
+      customFieldValues: {},
     });
 
     expect(result.name).toBe("Ana López");

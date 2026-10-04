@@ -13,6 +13,7 @@ const appointmentRowSchema = z.object({
   customer_id: z.string().uuid(),
   employee_id: z.string().uuid().nullable(),
   service_id: z.string().uuid().nullable(),
+  service_items: z.string(),
   starts_at: z.string(),
   ends_at: z.string(),
   status: z.enum([
@@ -40,6 +41,9 @@ function mapAppointment(row: AppointmentRow): Appointment {
     customerId: row.customer_id,
     employeeId: row.employee_id,
     serviceId: row.service_id,
+    serviceItems: serviceItemsSchema.parse(
+      JSON.parse(row.service_items) as unknown,
+    ),
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     status: row.status,
@@ -53,12 +57,21 @@ function mapAppointment(row: AppointmentRow): Appointment {
   };
 }
 
+const serviceItemsSchema = z.array(
+  z.object({
+    serviceId: z.string().uuid(),
+    name: z.string(),
+    durationMinutes: z.number().int().positive(),
+    price: z.number().int().nonnegative(),
+  }),
+);
+
 export class SqliteAppointmentRepository implements AppointmentRepository {
   constructor(private readonly database: DatabaseClient) {}
 
   async findActiveByBusiness(businessId: string): Promise<Appointment[]> {
     const rows = await this.database.select<unknown[]>(
-      `SELECT id, business_id, customer_id, employee_id, service_id,
+      `SELECT id, business_id, customer_id, employee_id, service_id, service_items,
               starts_at, ends_at, status, price, notes,
               created_at, updated_at, deleted_at, version, device_id
        FROM appointments
@@ -99,10 +112,10 @@ export class SqliteAppointmentRepository implements AppointmentRepository {
   async create(appointment: Appointment): Promise<void> {
     await this.database.execute(
       `INSERT INTO appointments (
-         id, business_id, customer_id, employee_id, service_id,
+         id, business_id, customer_id, employee_id, service_id, service_items,
          starts_at, ends_at, status, price, notes,
          created_at, updated_at, deleted_at, version, device_id
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       appointmentValues(appointment),
     );
   }
@@ -110,7 +123,7 @@ export class SqliteAppointmentRepository implements AppointmentRepository {
   async update(appointment: Appointment): Promise<void> {
     await this.database.execute(
       `UPDATE appointments SET
-         business_id = ?, customer_id = ?, employee_id = ?, service_id = ?,
+         business_id = ?, customer_id = ?, employee_id = ?, service_id = ?, service_items = ?,
          starts_at = ?, ends_at = ?, status = ?, price = ?, notes = ?,
          created_at = ?, updated_at = ?, deleted_at = ?, version = ?, device_id = ?
        WHERE id = ?`,
@@ -126,6 +139,7 @@ function appointmentValues(appointment: Appointment): unknown[] {
     appointment.customerId,
     appointment.employeeId,
     appointment.serviceId,
+    JSON.stringify(appointment.serviceItems),
     appointment.startsAt,
     appointment.endsAt,
     appointment.status,

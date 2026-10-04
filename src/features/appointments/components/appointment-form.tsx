@@ -9,7 +9,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useForm, useWatch, type UseFormRegisterReturn } from "react-hook-form";
 
 import { FieldError } from "@/components/field-error";
@@ -23,6 +23,7 @@ import {
 } from "@/domain/entities/appointment";
 import { appointmentStatusLabel } from "@/features/appointments/appointment-presenter";
 import { PaymentForm } from "@/features/payments/components/payment-form";
+import { ServiceMultiSelect } from "@/features/services/components/service-multi-select";
 import { paymentMethodLabel } from "@/features/payments/payment-presenter";
 import { formatMoney } from "@/lib/format-money";
 import {
@@ -83,10 +84,11 @@ export function AppointmentForm({
     reset(getDefaultValues(appointment, initialStartsAt));
   }, [appointment, clearError, initialStartsAt, reset]);
 
-  const [selectedStart, selectedDuration, selectedPrice] = useWatch({
-    control,
-    name: ["startsAt", "durationMinutes", "price"],
-  });
+  const [selectedStart, selectedDuration, selectedPrice, selectedServiceIds] =
+    useWatch({
+      control,
+      name: ["startsAt", "durationMinutes", "price", "serviceIds"],
+    });
   const estimatedEnd =
     selectedStart !== "" &&
     Number.isFinite(selectedDuration) &&
@@ -98,17 +100,26 @@ export function AppointmentForm({
     appointment === null
       ? []
       : payments.filter((payment) => payment.appointmentId === appointment.id);
-  const serviceRegistration = register("serviceId", {
-    onChange: (event: ChangeEvent<HTMLSelectElement>): void => {
-      const service = services.find((item) => item.id === event.target.value);
-      if (service !== undefined) {
-        setValue("durationMinutes", service.durationMinutes, {
-          shouldValidate: true,
-        });
-        setValue("price", service.price / 100, { shouldValidate: true });
-      }
-    },
-  });
+  const onServicesChange = (serviceIds: string[]): void => {
+    const selected = services.filter((service) =>
+      serviceIds.includes(service.id),
+    );
+    setValue("serviceIds", serviceIds, { shouldValidate: true });
+    setValue(
+      "durationMinutes",
+      selected.reduce<number>(
+        (total, service) => total + service.durationMinutes,
+        0,
+      ),
+      { shouldValidate: true },
+    );
+    setValue(
+      "price",
+      selected.reduce<number>((total, service) => total + service.price, 0) /
+        100,
+      { shouldValidate: true },
+    );
+  };
 
   const onSubmit = handleSubmit(async (values): Promise<void> => {
     const saved =
@@ -187,20 +198,13 @@ export function AppointmentForm({
             </option>
           ))}
         </FormSelect>
-        <FormSelect
-          error={errors.serviceId?.message}
-          id="appointment-service"
-          label="Servicio"
-          optional
-          registration={serviceRegistration}
-        >
-          <option value="">Sin servicio</option>
-          {services.map((service) => (
-            <option key={service.id} value={service.id}>
-              {service.name}
-            </option>
-          ))}
-        </FormSelect>
+        <ServiceMultiSelect
+          currency={currency}
+          error={errors.serviceIds?.message}
+          onChange={onServicesChange}
+          selectedIds={selectedServiceIds}
+          services={services}
+        />
         <div className="field-group">
           <Label htmlFor="appointment-start">Fecha y hora</Label>
           <Input
@@ -422,7 +426,11 @@ function getDefaultValues(
   return {
     customerId: appointment?.customerId ?? "",
     employeeId: appointment?.employeeId ?? "",
-    serviceId: appointment?.serviceId ?? "",
+    serviceIds:
+      appointment?.serviceItems.map((item) => item.serviceId) ??
+      (appointment?.serviceId === null || appointment?.serviceId === undefined
+        ? []
+        : [appointment.serviceId]),
     startsAt:
       appointment === null
         ? toLocalInput(initialStartsAt ?? new Date().toISOString())

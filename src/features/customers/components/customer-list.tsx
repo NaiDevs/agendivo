@@ -1,4 +1,4 @@
-import { Mail, Pencil, Phone, Users } from "lucide-react";
+import { ListPlus, Mail, Pencil, Phone, Users } from "lucide-react";
 import type { Customer } from "@/domain/entities/customer";
 import { Button } from "@/components/ui/button";
 
@@ -61,6 +61,25 @@ export function CustomerList({ customers, onEdit }: CustomerListProps) {
                   <Mail className="size-4" />
                   {customer.email ?? "Sin correo"}
                 </p>
+                {Object.values(customer.customFieldValues).filter(
+                  (value) =>
+                    value !== null &&
+                    value !== "" &&
+                    (!Array.isArray(value) || value.length > 0),
+                ).length > 0 && (
+                  <p className="text-primary flex items-center gap-2 text-xs font-medium">
+                    <ListPlus className="size-4" />
+                    {
+                      Object.values(customer.customFieldValues).filter(
+                        (value) =>
+                          value !== null &&
+                          value !== "" &&
+                          (!Array.isArray(value) || value.length > 0),
+                      ).length
+                    }{" "}
+                    datos adicionales
+                  </p>
+                )}
               </div>
             </article>
           ))}

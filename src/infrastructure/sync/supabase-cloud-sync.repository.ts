@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { APPOINTMENT_STATUS } from "@/domain/entities/appointment";
+import { CUSTOMER_CUSTOM_FIELD_TYPE } from "@/domain/entities/customer-custom-field";
 import type {
   SyncPullResult,
   SyncSnapshot,
@@ -38,6 +39,36 @@ const pullCustomerSchema = z.object({
   phone: z.string().nullable(),
   email: z.string().nullable(),
   notes: z.string().nullable(),
+  custom_field_values: z.record(
+    z.string().uuid(),
+    z.union([
+      z.boolean(),
+      z.number().finite(),
+      z.string(),
+      z.array(z.string()),
+      z.null(),
+    ]),
+  ),
+  ...syncFields,
+});
+
+const pullCustomerCustomFieldSchema = z.object({
+  id: z.string().uuid(),
+  business_id: z.string().uuid(),
+  name: z.string(),
+  type: z.enum([
+    CUSTOMER_CUSTOM_FIELD_TYPE.TEXT,
+    CUSTOMER_CUSTOM_FIELD_TYPE.TELEPHONE,
+    CUSTOMER_CUSTOM_FIELD_TYPE.NUMBER,
+    CUSTOMER_CUSTOM_FIELD_TYPE.BOOLEAN,
+    CUSTOMER_CUSTOM_FIELD_TYPE.DATETIME,
+    CUSTOMER_CUSTOM_FIELD_TYPE.EMAIL,
+    CUSTOMER_CUSTOM_FIELD_TYPE.SELECT,
+  ]),
+  is_required: z.boolean(),
+  is_multiple: z.boolean(),
+  options: z.array(z.string()),
+  sort_order: z.number().int().nonnegative(),
   ...syncFields,
 });
 
@@ -67,6 +98,14 @@ const pullAppointmentSchema = z.object({
   customer_id: z.string().uuid(),
   employee_id: z.string().uuid().nullable(),
   service_id: z.string().uuid().nullable(),
+  service_items: z.array(
+    z.object({
+      serviceId: z.string().uuid(),
+      name: z.string(),
+      durationMinutes: z.number().int().positive(),
+      price: z.number().int().nonnegative(),
+    }),
+  ),
   starts_at: z.string(),
   ends_at: z.string(),
   status: z.enum([
@@ -83,6 +122,7 @@ const pullAppointmentSchema = z.object({
 
 const syncPullResponseSchema = z.object({
   customers: z.array(pullCustomerSchema),
+  customerCustomFields: z.array(pullCustomerCustomFieldSchema),
   employees: z.array(pullEmployeeSchema),
   services: z.array(pullServiceSchema),
   appointments: z.array(pullAppointmentSchema),
@@ -143,6 +183,37 @@ export class SupabaseCloudSyncRepository implements CloudSyncRepository {
       },
     );
     if (fiscalError !== null) throw fiscalError;
+
+    const { error: customFieldsError } = await getSupabaseClient().rpc(
+      "sync_customer_custom_fields",
+      {
+        target_business_id: businessId,
+        customer_custom_fields_payload: snapshot.customerCustomFields,
+        customer_values_payload: snapshot.customers.map((customer) => ({
+          id: customer.id,
+          business_id: customer.business_id,
+          custom_field_values: customer.custom_field_values,
+          updated_at: customer.updated_at,
+          version: customer.version,
+        })),
+      },
+    );
+    if (customFieldsError !== null) throw customFieldsError;
+
+    const { error: appointmentServicesError } = await getSupabaseClient().rpc(
+      "sync_appointment_service_items",
+      {
+        target_business_id: businessId,
+        appointments_payload: snapshot.appointments.map((appointment) => ({
+          id: appointment.id,
+          business_id: appointment.business_id,
+          service_items: appointment.service_items,
+          updated_at: appointment.updated_at,
+          version: appointment.version,
+        })),
+      },
+    );
+    if (appointmentServicesError !== null) throw appointmentServicesError;
 
     return data.synced_at;
   }

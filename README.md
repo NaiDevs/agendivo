@@ -130,3 +130,8 @@ UI React → store Zustand → servicios de dominio → interfaces de repositori
 ```
 
 SQLite es la fuente principal de datos. Las entidades usan UUID, fechas UTC, borrado lógico y metadatos de versión/dispositivo para preparar una sincronización futura.
+
+## Soporte
+
+Consulta [SUPPORT.md](SUPPORT.md) o escribe a
+[naidelynmaldonado54@gmail.com](mailto:naidelynmaldonado54@gmail.com).

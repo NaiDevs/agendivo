@@ -1,8 +1,8 @@
 import {
   ArrowRight,
+  BriefcaseBusiness,
   CalendarDays,
   CalendarPlus,
-  Scissors,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -60,7 +60,11 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
           label="Profesionales"
           value={employees.length}
         />
-        <MetricCard icon={Scissors} label="Servicios" value={services.length} />
+        <MetricCard
+          icon={BriefcaseBusiness}
+          label="Servicios"
+          value={services.length}
+        />
       </div>
       <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
         <div className="hero-panel relative overflow-hidden p-6 sm:p-8">

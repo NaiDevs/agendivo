@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { PAYMENT_METHOD, type Payment } from "@/domain/entities/payment";
+import {
+  PAYMENT_DOCUMENT_TYPE,
+  PAYMENT_METHOD,
+  type Payment,
+} from "@/domain/entities/payment";
 import type { PaymentRepository } from "@/domain/repositories/payment.repository";
 import type { DatabaseClient } from "@/infrastructure/database/database-client";
 
@@ -18,6 +22,12 @@ const paymentRowSchema = z.object({
   ]),
   paid_at: z.string(),
   notes: z.string().nullable(),
+  document_type: z.enum([
+    PAYMENT_DOCUMENT_TYPE.RECEIPT,
+    PAYMENT_DOCUMENT_TYPE.FISCAL_INVOICE,
+  ]),
+  fiscal_data: z.string().nullable(),
+  service_items: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
   deleted_at: z.string().nullable(),
@@ -26,6 +36,30 @@ const paymentRowSchema = z.object({
 });
 
 type PaymentRow = z.infer<typeof paymentRowSchema>;
+
+const fiscalInvoiceSchema = z.object({
+  authorizationId: z.string().uuid(),
+  cai: z.string(),
+  correlative: z.number().int().nonnegative(),
+  emissionPointCode: z.string().length(3),
+  establishmentCode: z.string().length(3),
+  issuedDate: z.iso.date(),
+  legalName: z.string(),
+  number: z.string(),
+  rangeEnd: z.number().int().nonnegative(),
+  rangeStart: z.number().int().nonnegative(),
+  taxId: z.string(),
+  validUntil: z.string(),
+});
+
+const serviceItemsSchema = z.array(
+  z.object({
+    serviceId: z.string().uuid(),
+    name: z.string(),
+    durationMinutes: z.number().int().positive(),
+    price: z.number().int().nonnegative(),
+  }),
+);
 
 function mapPayment(row: PaymentRow): Payment {
   return {
@@ -37,6 +71,14 @@ function mapPayment(row: PaymentRow): Payment {
     method: row.method,
     paidAt: row.paid_at,
     notes: row.notes,
+    documentType: row.document_type,
+    fiscalInvoice:
+      row.fiscal_data === null
+        ? null
+        : fiscalInvoiceSchema.parse(JSON.parse(row.fiscal_data) as unknown),
+    serviceItems: serviceItemsSchema.parse(
+      JSON.parse(row.service_items) as unknown,
+    ),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -46,7 +88,7 @@ function mapPayment(row: PaymentRow): Payment {
 }
 
 const SELECT_COLUMNS = `id, business_id, appointment_id, customer_id, amount,
-        method, paid_at, notes,
+        method, paid_at, notes, document_type, fiscal_data, service_items,
         created_at, updated_at, deleted_at, version, device_id`;
 
 export class SqlitePaymentRepository implements PaymentRepository {
@@ -78,10 +120,28 @@ export class SqlitePaymentRepository implements PaymentRepository {
     await this.database.execute(
       `INSERT INTO payments (
          id, business_id, appointment_id, customer_id, amount,
-         method, paid_at, notes,
+         method, paid_at, notes, document_type, fiscal_data, service_items,
          created_at, updated_at, deleted_at, version, device_id
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       paymentValues(payment),
+    );
+  }
+
+  async issueFiscalInvoice(payment: Payment): Promise<void> {
+    await this.database.execute(
+      `UPDATE payments SET
+         document_type = ?, fiscal_data = ?, updated_at = ?, version = ?, device_id = ?
+       WHERE id = ? AND business_id = ? AND deleted_at IS NULL
+         AND document_type = 'receipt'`,
+      [
+        payment.documentType,
+        JSON.stringify(payment.fiscalInvoice),
+        payment.updatedAt,
+        payment.version,
+        payment.deviceId,
+        payment.id,
+        payment.businessId,
+      ],
     );
   }
 
@@ -89,7 +149,7 @@ export class SqlitePaymentRepository implements PaymentRepository {
     await this.database.execute(
       `UPDATE payments SET
          business_id = ?, appointment_id = ?, customer_id = ?, amount = ?,
-         method = ?, paid_at = ?, notes = ?,
+         method = ?, paid_at = ?, notes = ?, document_type = ?, fiscal_data = ?, service_items = ?,
          created_at = ?, updated_at = ?, deleted_at = ?, version = ?, device_id = ?
        WHERE id = ?`,
       [...paymentValues(payment).slice(1), payment.id],
@@ -107,6 +167,11 @@ function paymentValues(payment: Payment): unknown[] {
     payment.method,
     payment.paidAt,
     payment.notes,
+    payment.documentType,
+    payment.fiscalInvoice === null
+      ? null
+      : JSON.stringify(payment.fiscalInvoice),
+    JSON.stringify(payment.serviceItems),
     payment.createdAt,
     payment.updatedAt,
     payment.deletedAt,
