@@ -63,10 +63,6 @@
     },
     "macOS": {
       "minimumSystemVersion": "10.15"
-    },
-    "dmg": {
-      "appImage": { "x": 180, "y": 170 },
-      "applicationFolderImage": { "x": 480, "y": 170 }
     }
   }
 }
