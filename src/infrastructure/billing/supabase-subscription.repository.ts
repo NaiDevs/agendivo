@@ -55,6 +55,17 @@ export class SupabaseSubscriptionRepository implements SubscriptionRepository {
     if (createError !== null) {
       throw createError;
     }
+
+    await supabase.from("subscriptions").upsert(
+      {
+        business_id: businessId,
+        stripe_price_id: "pending",
+        status: SUBSCRIPTION_STATUS.PAST_DUE,
+        current_period_end: null,
+        cancel_at_period_end: false,
+      },
+      { onConflict: "business_id", ignoreDuplicates: true },
+    );
   }
 
   async findByBusiness(businessId: string): Promise<Subscription | null> {
