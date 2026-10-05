@@ -73,6 +73,12 @@ jobs:
         run: |
           $version = "${{ github.ref_name }}"
           $bundleDir = "src-tauri/target/release/bundle"
+          $headers = @{
+            "Authorization" = "Bearer $env:SUPABASE_SERVICE_KEY"
+            "Content-Type"  = "application/octet-stream"
+          }
+
+          # Subir archivos individuales
           $files = @(
             (Get-ChildItem "$bundleDir/nsis/*.exe" | Select-Object -First 1),
             (Get-ChildItem "$bundleDir/nsis/*.zip" | Select-Object -First 1),
@@ -82,15 +88,18 @@ jobs:
 
           foreach ($file in $files) {
             $name = $file.Name
-            $url = "$env:SUPABASE_URL/storage/v1/object/desktop-releases/$version/$name"
             Write-Host "Subiendo $name..."
-            $headers = @{
-              "Authorization" = "Bearer $env:SUPABASE_SERVICE_KEY"
-              "Content-Type"  = "application/octet-stream"
-            }
-            Invoke-RestMethod -Uri $url -Method Post -Headers $headers -InFile $file.FullName
-            Write-Host "OK: $name"
+            Invoke-RestMethod -Uri "$env:SUPABASE_URL/storage/v1/object/desktop-releases/$version/$name" -Method Post -Headers $headers -InFile $file.FullName
           }
+
+          # Crear y subir zip con .exe + .bat para instalacion sin SmartScreen
+          $exe = Get-ChildItem "$bundleDir/nsis/*.exe" | Select-Object -First 1
+          $bat = "scripts/instalar-windows.bat"
+          $zipPath = "$env:TEMP\Agendivo_${version}_Windows.zip"
+          Compress-Archive -Path $exe.FullName, $bat -DestinationPath $zipPath -Force
+          $zipName = "Agendivo_${version}_Windows.zip"
+          Write-Host "Subiendo $zipName..."
+          Invoke-RestMethod -Uri "$env:SUPABASE_URL/storage/v1/object/desktop-releases/$version/$zipName" -Method Post -Headers $headers -InFile $zipPath
 
   build-macos:
     name: Build macOS
