@@ -318,17 +318,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
         repository,
       );
       const owner = useAuthStore.getState().user;
-      if (owner === null) {
-        throw new Error("No encontramos la cuenta propietaria activa.");
-      }
       const employeeRepository = new SqliteEmployeeRepository(database);
-      const ownerEmployee = await createEmployee(
-        { email: owner.email, name: owner.fullName, phone: "" },
-        business.id,
-        deviceId,
-        employeeRepository,
-        { role: EMPLOYEE_ACCOUNT_ROLE.OWNER, userId: owner.id },
-      );
+      const initialEmployees = owner !== null
+        ? [await createEmployee(
+            { email: owner.email, name: owner.fullName, phone: "" },
+            business.id,
+            deviceId,
+            employeeRepository,
+            { role: EMPLOYEE_ACCOUNT_ROLE.OWNER, userId: owner.id },
+          )]
+        : [];
       const fiscalConfiguration = await repository.findFiscalConfiguration(
         business.id,
       );
@@ -340,7 +339,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         appointments: [],
         customers: [],
         customerCustomFields: [],
-        employees: [ownerEmployee],
+        employees: initialEmployees,
         services: [],
         payments: [],
         expenses: [],
