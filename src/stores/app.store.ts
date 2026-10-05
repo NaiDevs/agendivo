@@ -319,15 +319,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
       );
       const owner = useAuthStore.getState().user;
       const employeeRepository = new SqliteEmployeeRepository(database);
-      const initialEmployees = owner !== null
-        ? [await createEmployee(
-            { email: owner.email, name: owner.fullName, phone: "" },
-            business.id,
-            deviceId,
-            employeeRepository,
-            { role: EMPLOYEE_ACCOUNT_ROLE.OWNER, userId: owner.id },
-          )]
-        : [];
+      const initialEmployees =
+        owner !== null
+          ? [
+              await createEmployee(
+                { email: owner.email, name: owner.fullName, phone: "" },
+                business.id,
+                deviceId,
+                employeeRepository,
+                { role: EMPLOYEE_ACCOUNT_ROLE.OWNER, userId: owner.id },
+              ),
+            ]
+          : [];
       const fiscalConfiguration = await repository.findFiscalConfiguration(
         business.id,
       );
