@@ -88,10 +88,19 @@ jobs:
             (Get-ChildItem "$bundleDir/msi/*.msi" | Select-Object -First 1)
           ) | Where-Object { $_ }
 
+          function Upload-ToSupabase($path, $name) {
+            $uri = "$env:SUPABASE_URL/storage/v1/object/desktop-releases/$version/$name"
+            try {
+              Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -InFile $path
+            } catch {
+              Invoke-RestMethod -Uri $uri -Method Put -Headers $headers -InFile $path
+            }
+            Write-Host "OK: $name"
+          }
+
           foreach ($file in $files) {
-            $name = $file.Name
-            Write-Host "Subiendo $name..."
-            Invoke-RestMethod -Uri "$env:SUPABASE_URL/storage/v1/object/desktop-releases/$version/$name" -Method Post -Headers $headers -InFile $file.FullName
+            Write-Host "Subiendo $($file.Name)..."
+            Upload-ToSupabase $file.FullName $file.Name
           }
 
           # Crear y subir zip con .exe + .bat para instalacion sin SmartScreen
@@ -101,7 +110,7 @@ jobs:
           Compress-Archive -Path $exe.FullName, $bat -DestinationPath $zipPath -Force
           $zipName = "Agendivo_${version}_Windows.zip"
           Write-Host "Subiendo $zipName..."
-          Invoke-RestMethod -Uri "$env:SUPABASE_URL/storage/v1/object/desktop-releases/$version/$zipName" -Method Post -Headers $headers -InFile $zipPath
+          Upload-ToSupabase $zipPath $zipName
 
   build-macos:
     name: Build macOS
@@ -155,14 +164,25 @@ jobs:
           VERSION="${{ github.ref_name }}"
           BUNDLE_DIR="src-tauri/target/aarch64-apple-darwin/release/bundle"
 
+          upload() {
+            local file=$1 name=$2
+            local uri="$SUPABASE_URL/storage/v1/object/desktop-releases/$VERSION/$name"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$uri" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$file")
+            if [ "$STATUS" = "409" ]; then
+              curl -s -X PUT "$uri" \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary "@$file"
+            fi
+            echo "OK: $name"
+          }
+
           for file in "$BUNDLE_DIR/dmg/"*.dmg "$BUNDLE_DIR/macos/"*.tar.gz "$BUNDLE_DIR/macos/"*.sig; do
             [ -f "$file" ] || continue
             NAME=$(basename "$file")
             echo "Subiendo $NAME..."
-            curl -s -X POST \
-              "$SUPABASE_URL/storage/v1/object/desktop-releases/$VERSION/$NAME" \
-              -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@$file"
-            echo "OK: $NAME"
+            upload "$file" "$NAME"
           done
