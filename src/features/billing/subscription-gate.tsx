@@ -1,4 +1,10 @@
-import { CreditCard, LogOut, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  CreditCard,
+  LogOut,
+  RefreshCw,
+  ShieldCheck,
+  Clock,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 
@@ -6,7 +12,10 @@ import { AgendivoBrand } from "@/components/agendivo-brand";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FEATURE_FLAGS } from "@/config/feature-flags";
-import { hasPaidSubscription } from "@/domain/entities/subscription";
+import {
+  hasPaidSubscription,
+  SUBSCRIPTION_STATUS,
+} from "@/domain/entities/subscription";
 import { useAppStore } from "@/stores/app.store";
 import { useAuthStore } from "@/stores/auth.store";
 import { useSubscriptionStore } from "@/stores/subscription.store";
@@ -53,6 +62,86 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
   if (paid) return children;
 
   const checking = isLoading || !checkedCurrentBusiness;
+  const isPending =
+    checkedCurrentBusiness &&
+    (subscription === null ||
+      subscription.status === SUBSCRIPTION_STATUS.PAST_DUE ||
+      subscription.status === SUBSCRIPTION_STATUS.CHECKOUT_PENDING);
+
+  if (checking) {
+    return (
+      <main className="setup-background grid min-h-screen place-items-center p-4 sm:p-8">
+        <section className="page-enter w-full max-w-xl rounded-3xl border bg-white p-6 shadow-2xl sm:p-9">
+          <div className="text-center">
+            <AgendivoBrand
+              alt="Agendivo"
+              className="mx-auto h-12 w-auto max-w-56"
+              variant="logo-horizontal-color"
+            />
+            <p className="text-muted-foreground mt-8 text-sm">
+              Verificando acceso…
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (isPending) {
+    return (
+      <main className="setup-background grid min-h-screen place-items-center p-4 sm:p-8">
+        <section className="page-enter w-full max-w-xl rounded-3xl border bg-white p-6 shadow-2xl sm:p-9">
+          <div className="text-center">
+            <AgendivoBrand
+              alt="Agendivo"
+              className="mx-auto h-12 w-auto max-w-56"
+              variant="logo-horizontal-color"
+            />
+            <div className="bg-primary/8 mx-auto mt-7 flex size-14 items-center justify-center rounded-2xl">
+              <Clock className="text-primary size-7" />
+            </div>
+            <p className="eyebrow mt-5">Cuenta registrada</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+              Tu acceso está pendiente
+            </h1>
+            <p className="text-muted-foreground mx-auto mt-3 max-w-sm text-sm leading-6">
+              Tu negocio <strong>{business.name}</strong> ya fue creado. Tu
+              acceso se habilitará una vez que confirmemos tu suscripción. Te
+              avisaremos cuando esté listo.
+            </p>
+          </div>
+
+          {error !== null && (
+            <Alert className="mt-5" variant="destructive">
+              <AlertTitle>No pudimos verificar la suscripción</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="mt-7 grid gap-3">
+            <Button
+              disabled={isLoading}
+              onClick={() => void load(business.id, business.name)}
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw className={isLoading ? "animate-spin" : undefined} />
+              Verificar acceso
+            </Button>
+            <Button
+              disabled={isAuthWorking}
+              onClick={() => void signOut()}
+              type="button"
+              variant="ghost"
+            >
+              <LogOut />
+              {isAuthWorking ? "Cerrando sesión…" : "Usar otra cuenta"}
+            </Button>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="setup-background grid min-h-screen place-items-center p-4 sm:p-8">
@@ -63,14 +152,13 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
             className="mx-auto h-12 w-auto max-w-56"
             variant="logo-horizontal-color"
           />
-          <p className="eyebrow mt-7">Tu cuenta está lista</p>
+          <p className="eyebrow mt-7">Sin acceso</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            Activa Agendivo para continuar
+            Tu suscripción no está activa
           </h1>
           <p className="text-muted-foreground mx-auto mt-3 max-w-md text-sm leading-6">
-            Tu cuenta y los datos iniciales de {business.name} ya fueron
-            creados. La agenda y las demás funciones se habilitarán cuando
-            Stripe confirme el pago.
+            El estado actual de tu suscripción no permite el acceso a Agendivo.
+            Contacta a soporte para más información.
           </p>
         </div>
 
@@ -82,7 +170,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
             <div>
               <p className="font-semibold">Plan Agendivo</p>
               <p className="text-muted-foreground mt-1 text-sm">
-                Pago seguro procesado directamente por Stripe.
+                Estado: {subscription?.status ?? "sin suscripción"}
               </p>
             </div>
           </div>
@@ -103,7 +191,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
           {FEATURE_FLAGS.stripeSubscriptionButtonEnabled && (
             <Button
               className="h-11"
-              disabled={checking || isOpeningCheckout}
+              disabled={isOpeningCheckout}
               onClick={() => void openCheckout(business.id, business.name)}
               type="button"
             >
@@ -120,7 +208,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
             variant="outline"
           >
             <RefreshCw className={isLoading ? "animate-spin" : undefined} />
-            {checking ? "Verificando…" : "Ya pagué, verificar acceso"}
+            Verificar acceso
           </Button>
           <Button
             disabled={isAuthWorking}
