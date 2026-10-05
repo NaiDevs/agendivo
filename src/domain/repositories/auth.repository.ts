@@ -29,6 +29,7 @@ export interface AuthRepository {
   ) => () => void;
   register: (input: RegisterAccountInput) => Promise<AuthSession | null>;
   resendSignUpConfirmation: (email: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signIn: (input: SignInInput) => Promise<AuthSession>;
   signOut: () => Promise<void>;
   updateProfile: (fullName: string) => Promise<AuthUser>;

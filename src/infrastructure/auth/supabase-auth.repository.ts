@@ -82,6 +82,16 @@ export class SupabaseAuthRepository implements AuthRepository {
     return data.session === null ? null : mapSession(data.session);
   }
 
+  async resetPassword(email: string): Promise<void> {
+    const { error } = await getSupabaseClient().auth.resetPasswordForEmail(
+      email,
+      { redirectTo: EMAIL_CONFIRMATION_REDIRECT },
+    );
+    if (error !== null) {
+      throw error;
+    }
+  }
+
   async resendSignUpConfirmation(email: string): Promise<void> {
     const { error } = await getSupabaseClient().auth.resend({
       email,

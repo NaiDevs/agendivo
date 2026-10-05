@@ -40,6 +40,7 @@ interface AuthStore {
   phase: AuthPhase;
   register: (input: RegisterAccountInput) => Promise<boolean>;
   resendSignUpConfirmation: (email: string) => Promise<boolean>;
+  resetPassword: (email: string) => Promise<boolean>;
   signIn: (input: SignInInput) => Promise<boolean>;
   signOut: () => Promise<boolean>;
   updateProfile: (fullName: string) => Promise<boolean>;
@@ -277,6 +278,22 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({
         isWorking: false,
         notice: "Enviamos un código nuevo. Revisa también la carpeta de spam.",
+      });
+      return true;
+    } catch (error: unknown) {
+      set({ error: authErrorMessage(error), isWorking: false });
+      return false;
+    }
+  },
+
+  resetPassword: async (email: string): Promise<boolean> => {
+    set({ error: null, isWorking: true });
+    try {
+      await repository.resetPassword(email);
+      set({
+        isWorking: false,
+        notice:
+          "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña. Revisa también la carpeta de spam.",
       });
       return true;
     } catch (error: unknown) {

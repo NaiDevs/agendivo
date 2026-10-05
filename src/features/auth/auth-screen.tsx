@@ -20,10 +20,12 @@ import { Label } from "@/components/ui/label";
 import {
   confirmSignUpSchema,
   configurePasswordSchema,
+  forgotPasswordSchema,
   registerAccountSchema,
   signInSchema,
   type ConfirmSignUpValues,
   type ConfigurePasswordValues,
+  type ForgotPasswordValues,
   type RegisterAccountValues,
   type SignInValues,
 } from "@/schemas/auth.schema";
@@ -31,6 +33,7 @@ import { useAuthStore } from "@/stores/auth.store";
 
 const AUTH_MODE = {
   CONFIRM: "confirm",
+  FORGOT_PASSWORD: "forgot-password",
   REGISTER: "register",
   SIGN_IN: "sign-in",
 } as const;
@@ -95,7 +98,9 @@ export function AuthScreen() {
                   ? "Confirmar correo"
                   : mode === AUTH_MODE.SIGN_IN
                     ? "Iniciar sesión"
-                    : "Crear cuenta"}
+                    : mode === AUTH_MODE.FORGOT_PASSWORD
+                      ? "Restablecer contraseña"
+                      : "Crear cuenta"}
             </CardTitle>
             <CardDescription>
               {mustConfigurePassword
@@ -104,7 +109,9 @@ export function AuthScreen() {
                   ? `Ingresa el código enviado a ${confirmationEmail}.`
                   : mode === AUTH_MODE.SIGN_IN
                     ? "Ingresa con la cuenta asociada a tu negocio."
-                    : "Crea la cuenta propietaria de tu negocio."}
+                    : mode === AUTH_MODE.FORGOT_PASSWORD
+                      ? "Ingresa tu correo y te enviaremos un enlace para recuperar el acceso."
+                      : "Crea la cuenta propietaria de tu negocio."}
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5">
@@ -126,7 +133,11 @@ export function AuthScreen() {
             ) : confirmingEmail ? (
               <ConfirmSignUpForm email={confirmationEmail ?? ""} />
             ) : mode === AUTH_MODE.SIGN_IN ? (
-              <SignInForm />
+              <SignInForm
+                onForgotPassword={() => changeMode(AUTH_MODE.FORGOT_PASSWORD)}
+              />
+            ) : mode === AUTH_MODE.FORGOT_PASSWORD ? (
+              <ForgotPasswordForm />
             ) : (
               <RegisterForm />
             )}
@@ -145,7 +156,7 @@ export function AuthScreen() {
                   type="button"
                   onClick={() =>
                     changeMode(
-                      confirmingEmail
+                      confirmingEmail || mode === AUTH_MODE.FORGOT_PASSWORD
                         ? AUTH_MODE.SIGN_IN
                         : mode === AUTH_MODE.SIGN_IN
                           ? AUTH_MODE.REGISTER
@@ -153,7 +164,7 @@ export function AuthScreen() {
                     )
                   }
                 >
-                  {confirmingEmail
+                  {confirmingEmail || mode === AUTH_MODE.FORGOT_PASSWORD
                     ? "Inicia sesión"
                     : mode === AUTH_MODE.SIGN_IN
                       ? "Regístrate"
@@ -297,7 +308,7 @@ function ConfirmSignUpForm({ email }: { email: string }) {
   );
 }
 
-function SignInForm() {
+function SignInForm({ onForgotPassword }: { onForgotPassword: () => void }) {
   const signIn = useAuthStore((state) => state.signIn);
   const isWorking = useAuthStore((state) => state.isWorking);
   const {
@@ -342,6 +353,53 @@ function SignInForm() {
       </AuthField>
       <Button className="h-11" disabled={isWorking} type="submit">
         {isWorking ? "Ingresando…" : "Ingresar"}
+      </Button>
+      <Button
+        className="text-muted-foreground"
+        disabled={isWorking}
+        onClick={onForgotPassword}
+        type="button"
+        variant="ghost"
+      >
+        Olvidé mi contraseña
+      </Button>
+    </form>
+  );
+}
+
+function ForgotPasswordForm() {
+  const resetPassword = useAuthStore((state) => state.resetPassword);
+  const isWorking = useAuthStore((state) => state.isWorking);
+  const {
+    formState: { errors },
+    handleSubmit,
+    register,
+  } = useForm<ForgotPasswordValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: "" },
+  });
+
+  const onSubmit = handleSubmit(async (values): Promise<void> => {
+    await resetPassword(values.email);
+  });
+
+  return (
+    <form className="grid gap-5" onSubmit={onSubmit}>
+      <AuthField
+        error={errors.email?.message}
+        label="Correo de tu cuenta"
+        name="forgot-email"
+      >
+        <Input
+          autoComplete="email"
+          autoFocus
+          id="forgot-email"
+          type="email"
+          {...register("email")}
+        />
+      </AuthField>
+      <Button className="h-11" disabled={isWorking} type="submit">
+        {isWorking ? "Enviando…" : "Enviar enlace de recuperación"}
       </Button>
     </form>
   );
